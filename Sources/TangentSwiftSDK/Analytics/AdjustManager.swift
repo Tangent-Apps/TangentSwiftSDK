@@ -1,5 +1,5 @@
 import Foundation
-import AdjustSdk
+import Adjust
 
 @MainActor
 public final class AdjustManager: NSObject, ObservableObject {
