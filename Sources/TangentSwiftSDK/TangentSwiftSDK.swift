@@ -102,4 +102,14 @@ public extension TangentSwiftSDK {
     var monetization: MonetizationService {
         return MonetizationService.shared
     }
+    
+    /// Access to paywall services (RevenueCat)
+    var paywall: RevenueCatManager {
+        return RevenueCatManager.shared
+    }
+    
+    /// Access to superwall services
+    var superwall: SuperwallManager {
+        return SuperwallManager.shared
+    }
 }

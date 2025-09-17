@@ -164,6 +164,43 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             }
         }
     }
+    
+    // MARK: - Helper Methods
+    
+    /// Get localized price string for a product (async version)
+    public func getPriceString(for productId: String) async -> String? {
+        do {
+            let products: [StoreProduct] = await Purchases.shared.products([productId])
+            guard let product = products.first else {
+                return nil
+            }
+            return product.localizedPriceString
+        } catch {
+            print("❌ RevenueCat: Error getting price for \(productId): \(error)")
+            return nil
+        }
+    }
+    
+    /// Get product directly by ID
+    public func getProduct(for productId: String) async -> StoreProduct? {
+        do {
+            let products: [StoreProduct] = await Purchases.shared.products([productId])
+            return products.first
+        } catch {
+            print("❌ RevenueCat: Error getting product \(productId): \(error)")
+            return nil
+        }
+    }
+    
+    /// Check if user has specific entitlement
+    public func hasEntitlement(_ entitlementId: String) async -> Bool {
+        do {
+            let customerInfo = try await Purchases.shared.customerInfo()
+            return customerInfo.entitlements[entitlementId]?.isActive == true
+        } catch {
+            return false
+        }
+    }
 }
 
 // MARK: - PurchasesDelegate
