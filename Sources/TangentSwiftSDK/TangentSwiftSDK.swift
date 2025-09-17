@@ -57,7 +57,7 @@ public final class TangentSwiftSDK {
     
     // MARK: - Private Methods
     
-    private func setupServices() {
+    @MainActor private func setupServices() {
         guard let config = configuration else { return }
         
         // Initialize Analytics
