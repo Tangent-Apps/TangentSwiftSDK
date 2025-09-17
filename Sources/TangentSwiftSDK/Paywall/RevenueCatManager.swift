@@ -109,6 +109,24 @@ public final class RevenueCatManager: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Purchase by Product ID (Convenience Method)
+    public func purchase(productId: String) async -> Bool {
+        guard let offerings = offerings else {
+            print("❌ RevenueCat: No offerings available")
+            return false
+        }
+        
+        // Find the product in available offerings
+        for offering in offerings.all.values {
+            if let product = offering.availablePackages.first(where: { $0.storeProduct.productIdentifier == productId })?.storeProduct {
+                return await purchaseProduct(product)
+            }
+        }
+        
+        print("❌ RevenueCat: Product not found - \(productId)")
+        return false
+    }
+    
     // MARK: - Restore Purchases
     public func restorePurchases() async -> Bool {
         isLoading = true
