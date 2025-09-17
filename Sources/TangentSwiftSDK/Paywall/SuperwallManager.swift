@@ -40,11 +40,11 @@ public final class SuperwallManager: NSObject, ObservableObject {
     }
     
     public func showPaywall() {
-        Superwall.shared.register(placement: "campaign_trigger")
+        Superwall.shared.register(event: "campaign_trigger")
     }
     
     public func showDiscountPayWall() {
-        Superwall.shared.register(placement: "paywall_decline")
+        Superwall.shared.register(event: "paywall_decline")
     }
     
     public func setUserAttributes(_ attributes: [String: Any]) {
@@ -73,21 +73,23 @@ public final class SuperwallManager: NSObject, ObservableObject {
 
 // MARK: - SuperwallDelegate
 extension SuperwallManager: SuperwallDelegate {
-    @objc(handleSuperwallPlacementWithInfo:) nonisolated public func handleSuperwallPlacement(withInfo eventInfo: SuperwallPlacementInfo) {
+    nonisolated public func handleSuperwallEvent(withInfo eventInfo: SuperwallEventInfo) {
         Task { @MainActor in
-            switch eventInfo.placement {
-            case .paywallOpen:
+            print("📱 Superwall Event: \(eventInfo.event)")
+            
+            switch eventInfo.event {
+            case "paywall_open":
                 print("🚀 Superwall paywall opened")
                 TangentSwiftSDK.shared.analytics.track(event: .paywallViewed, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description
+                    "event": eventInfo.event
                 ])
                 
-            case .paywallClose:
+            case "paywall_close":
                 print("🚀 Superwall paywall closed")
                 TangentSwiftSDK.shared.analytics.track(event: .paywallDismissed, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description
+                    "event": eventInfo.event
                 ])
                 
                 // Show discount offer with smart logic after paywall is dismissed
@@ -98,54 +100,50 @@ extension SuperwallManager: SuperwallDelegate {
                     }
                 }
                 
-            case .transactionStart:
+            case "transaction_start":
                 print("🚀 Superwall transaction started")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseStarted, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description
+                    "event": eventInfo.event
                 ])
                 
-            case .transactionComplete:
+            case "transaction_complete":
                 print("✅ Superwall purchase completed")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseCompleted, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description
+                    "event": eventInfo.event
                 ])
                 TangentSwiftSDK.shared.analytics.track(event: .subscriptionActivated, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description
+                    "event": eventInfo.event
                 ])
                 
-            case .transactionFail:
+            case "transaction_fail":
                 print("❌ Superwall transaction failed")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description
+                    "event": eventInfo.event
                 ])
                 
-            case .transactionAbandon:
+            case "transaction_abandon":
                 print("🚫 Superwall transaction abandoned")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description,
+                    "event": eventInfo.event,
                     "reason": "user_cancelled"
                 ])
                 
-            case .transactionRestore:
+            case "transaction_restore":
                 print("🔄 Superwall purchase restored")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseRestored, properties: [
                     "source": "superwall",
-                    "placement": eventInfo.placement.description
+                    "event": eventInfo.event
                 ])
                 
             default:
                 break
             }
         }
-    }
-    
-    nonisolated public func handleSuperwallEvent(withInfo eventInfo: SuperwallEventInfo) {
-        print("📱 Superwall Event: \(eventInfo.event)")
     }
     
     nonisolated public func handleLog(level: String, scope: String, message: String?, info: [String : Any]?, error: Error?) {
