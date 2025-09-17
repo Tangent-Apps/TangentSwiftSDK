@@ -42,7 +42,7 @@ public final class TangentSwiftSDK {
     
     /// Initialize the SDK with configuration
     /// - Parameter configuration: SDK configuration with API keys
-    public func initialize(with configuration: Configuration) {
+    @MainActor public func initialize(with configuration: Configuration) {
         guard !isInitialized else {
             print("⚠️ TangentSwiftSDK: SDK already initialized")
             return

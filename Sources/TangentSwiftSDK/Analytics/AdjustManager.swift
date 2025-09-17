@@ -26,7 +26,7 @@ public final class AdjustManager: NSObject, ObservableObject {
         config?.delegate = self
         
         // Initialize Adjust
-        Adjust.initSdk(config)
+        Adjust.appDidLaunch(config)
         
         isInitialized = true
         print("✅ Adjust: Configured successfully with token: \(appToken)")
@@ -163,18 +163,17 @@ public final class AdjustManager: NSObject, ObservableObject {
     private func handleAttributionCallback(_ attribution: ADJAttribution?) {
         guard let attribution = attribution else { return }
         
-        // Get ADID using the v5 API asynchronously
-        Adjust.adid { [weak self] adid in
-            DispatchQueue.main.async {
-                self?.adid = adid
-                
-                print("📈 Adjust Attribution:")
-                print("  - ADID: \(adid ?? "N/A")")
-                print("  - Network: \(attribution.network ?? "N/A")")
-                print("  - Campaign: \(attribution.campaign ?? "N/A")")
-                print("  - Creative: \(attribution.creative ?? "N/A")")
-                print("  - Click Label: \(attribution.clickLabel ?? "N/A")")
-            }
+        // Get ADID
+        let adid = Adjust.adid()
+        Task { @MainActor in
+            self.adid = adid
+            
+            print("📈 Adjust Attribution:")
+            print("  - ADID: \(adid ?? "N/A")")
+            print("  - Network: \(attribution.network ?? "N/A")")
+            print("  - Campaign: \(attribution.campaign ?? "N/A")")
+            print("  - Creative: \(attribution.creative ?? "N/A")")
+            print("  - Click Label: \(attribution.clickLabel ?? "N/A")")
         }
     }
     

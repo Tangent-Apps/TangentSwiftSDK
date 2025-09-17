@@ -77,14 +77,16 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             isSubscribed = !customerInfo.activeSubscriptions.isEmpty
             
             // Track purchase in analytics
+            let priceAsDouble = NSDecimalNumber(decimal: product.price).doubleValue
+            
             MixpanelManager.shared.trackRevenue(
-                amount: Double(truncating: product.price),
+                amount: priceAsDouble,
                 productId: product.productIdentifier
             )
             
             AdjustManager.shared.trackPurchaseCompleted(
                 productId: product.productIdentifier,
-                amount: Double(truncating: product.price),
+                amount: priceAsDouble,
                 source: "paywall",
                 eventToken: "purchase_token" // This should be configured per app
             )
