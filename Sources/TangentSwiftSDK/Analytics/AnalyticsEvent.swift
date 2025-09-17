@@ -6,21 +6,9 @@ public enum AnalyticsEvent: String, CaseIterable {
     case appLaunched = "App Launched"
     case sessionStart = "Session Start"
     case sessionEnd = "Session End"
-    
-    // Onboarding
-    case onboardingStarted = "Onboarding Started"
-    case onboardingCompleted = "Onboarding Completed"
-    case birthDateEntered = "Birth Date Entered"
-    case birthTimeEntered = "Birth Time Entered"
-    case birthLocationEntered = "Birth Location Entered"
-    case zodiacSignShown = "Zodiac Sign Shown"
-    
+
     // Dashboard
     case dashboardViewed = "Dashboard Viewed"
-    case horoscopeViewed = "Horoscope Viewed"
-    case timeFrameChanged = "Time Frame Changed"
-    case quickActionTapped = "Quick Action Tapped"
-    case awareSectionViewed = "Aware Section Viewed"
     
     // Chat
     case chatStarted = "Chat Started"
@@ -28,11 +16,6 @@ public enum AnalyticsEvent: String, CaseIterable {
     case chatMessageReceived = "Chat Message Received"
     case chatLimitReached = "Chat Limit Reached"
     
-    // Tasks
-    case tasksViewed = "Tasks Viewed"
-    case taskCompleted = "Task Completed"
-    case allTasksCompleted = "All Tasks Completed"
-    case missionAccomplished = "Mission Accomplished"
     
     // Subscription
     case paywallViewed = "Paywall Viewed"

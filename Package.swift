@@ -7,7 +7,7 @@ let package = Package(
     name: "TangentSwiftSDK",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v14)
+        .iOS(.v16)
     ],
     products: [
         .library(
@@ -17,12 +17,12 @@ let package = Package(
     ],
     dependencies: [
         // Analytics
-        .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "4.0.0"),
-        .package(url: "https://github.com/adjust/ios_sdk", from: "4.38.4"),
+        .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "5.0.0"),
+        .package(url: "https://github.com/adjust/ios_sdk", from: "4.0.0"),
         
         // Paywall & Subscriptions
-        .package(url: "https://github.com/RevenueCat/purchases-ios-spm", from: "4.0.0"),
-        .package(url: "https://github.com/superwall/Superwall-iOS", from: "3.0.0"),
+        .package(url: "https://github.com/RevenueCat/purchases-ios-spm", from: "5.0.0"),
+        .package(url: "https://github.com/superwall/Superwall-iOS", from: "4.0.0"),
     ],
     targets: [
         .target(

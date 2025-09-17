@@ -84,8 +84,7 @@ public final class TangentSwiftSDK {
 }
 
 // MARK: - Public Extensions for Easy Access
-
-@available(iOS 14.0, *)
+@MainActor
 public extension TangentSwiftSDK {
     
     /// Access to analytics services

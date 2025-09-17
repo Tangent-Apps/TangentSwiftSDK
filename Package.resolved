@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mixpanel/mixpanel-swift",
       "state" : {
-        "revision" : "c550cbef7654e59d06bf9c224ea25f681dea8975",
-        "version" : "4.4.0"
+        "revision" : "f1b8ceb52f9fe2b0dcd80679b96a42a858b103f0",
+        "version" : "5.1.1"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/RevenueCat/purchases-ios-spm",
       "state" : {
-        "revision" : "d9302bb5fe60e791eae06ab6504355e921784425",
-        "version" : "4.43.8"
+        "revision" : "06c0e8b9d38e535307776405e1ed13c326f8878c",
+        "version" : "5.39.0"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superscript-iOS",
       "state" : {
-        "revision" : "9ecdb97d84e94cdde3bfa63401903ec764a8f414",
-        "version" : "0.1.17"
+        "revision" : "59227a3450de9b06857986bc317be387bca3ed4b",
+        "version" : "1.0.2"
       }
     },
     {
@@ -41,8 +41,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superwall-iOS",
       "state" : {
-        "revision" : "bd32d30383bf0f2bab4a1725f778e5e28722fdcc",
-        "version" : "3.12.5"
+        "revision" : "a24f12279c985ea08035f7477b53c273f71e76f2",
+        "version" : "4.8.1"
       }
     }
   ],

@@ -169,27 +169,17 @@ public final class RevenueCatManager: NSObject, ObservableObject {
     
     /// Get localized price string for a product (async version)
     public func getPriceString(for productId: String) async -> String? {
-        do {
-            let products: [StoreProduct] = await Purchases.shared.products([productId])
-            guard let product = products.first else {
-                return nil
-            }
-            return product.localizedPriceString
-        } catch {
-            print("❌ RevenueCat: Error getting price for \(productId): \(error)")
+        let products: [StoreProduct] = await Purchases.shared.products([productId])
+        guard let product = products.first else {
             return nil
         }
+        return product.localizedPriceString
     }
     
     /// Get product directly by ID
     public func getProduct(for productId: String) async -> StoreProduct? {
-        do {
-            let products: [StoreProduct] = await Purchases.shared.products([productId])
-            return products.first
-        } catch {
-            print("❌ RevenueCat: Error getting product \(productId): \(error)")
-            return nil
-        }
+        let products: [StoreProduct] = await Purchases.shared.products([productId])
+        return products.first
     }
     
     /// Check if user has specific entitlement
