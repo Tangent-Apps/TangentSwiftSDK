@@ -19,11 +19,17 @@ public final class ATTManager: ObservableObject {
     
     // MARK: - Private Properties
     private var permissionRequestCompletion: ((Bool) -> Void)?
+    private var attConfiguration: TangentSwiftSDK.ATTConfiguration?
     
     // MARK: - Initialization
     private init() {
         updateTrackingStatus()
         observeStatusChanges()
+    }
+    
+    // MARK: - Configuration
+    internal func configure(with attConfiguration: TangentSwiftSDK.ATTConfiguration?) {
+        self.attConfiguration = attConfiguration
     }
     
     // MARK: - Public Methods
@@ -174,9 +180,11 @@ public final class ATTManager: ObservableObject {
 public struct ATTPermissionView: View {
     @StateObject private var attManager = ATTManager.shared
     let onCompletion: (Bool) -> Void
+    private let configuration: TangentSwiftSDK.ATTConfiguration
     
-    public init(onCompletion: @escaping (Bool) -> Void) {
+    public init(onCompletion: @escaping (Bool) -> Void, configuration: TangentSwiftSDK.ATTConfiguration? = nil) {
         self.onCompletion = onCompletion
+        self.configuration = configuration ?? TangentSwiftSDK.ATTConfiguration()
     }
     
     public var body: some View {
@@ -187,14 +195,14 @@ public struct ATTPermissionView: View {
                 .foregroundColor(.blue)
             
             // Title
-            Text("Help Us Personalize Your Experience")
+            Text(configuration.title)
                 .font(.title2)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.primary)
             
             // Description
-            Text("We'd like your permission to track your activity across apps and websites to provide you with personalized insights and better app experience.")
+            Text(configuration.description)
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
@@ -202,9 +210,10 @@ public struct ATTPermissionView: View {
             
             // Benefits
             VStack(alignment: .leading, spacing: 12) {
-                benefitRow(icon: "sparkles", text: "More accurate predictions")
-                benefitRow(icon: "chart.line.uptrend.xyaxis", text: "Personalized insights")
-                benefitRow(icon: "heart.fill", text: "Better content matching")
+                ForEach(configuration.benefits.indices, id: \.self) { index in
+                    let benefit = configuration.benefits[index]
+                    benefitRow(icon: benefit.icon, text: benefit.text)
+                }
             }
             .padding(.horizontal)
             
@@ -217,7 +226,7 @@ public struct ATTPermissionView: View {
                         onCompletion(granted)
                     }
                 }) {
-                    Text("Allow Tracking")
+                    Text(configuration.allowButtonText)
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -229,7 +238,7 @@ public struct ATTPermissionView: View {
                 Button(action: {
                     onCompletion(false)
                 }) {
-                    Text("Ask App Not to Track")
+                    Text(configuration.denyButtonText)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }

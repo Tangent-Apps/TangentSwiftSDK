@@ -15,19 +15,59 @@ public final class TangentSwiftSDK {
         let revenueCatAPIKey: String?
         let superwallAPIKey: String?
         let firebaseConfigPath: String?
+        let attConfiguration: ATTConfiguration?
         
         public init(
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             revenueCatAPIKey: String? = nil,
             superwallAPIKey: String? = nil,
-            firebaseConfigPath: String? = nil
+            firebaseConfigPath: String? = nil,
+            attConfiguration: ATTConfiguration? = nil
         ) {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.revenueCatAPIKey = revenueCatAPIKey
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
+            self.attConfiguration = attConfiguration
+        }
+    }
+    
+    // MARK: - ATT Configuration
+    public struct ATTConfiguration {
+        let title: String
+        let description: String
+        let benefits: [ATTBenefit]
+        let allowButtonText: String
+        let denyButtonText: String
+        
+        public init(
+            title: String = "Help Us Personalize Your Experience",
+            description: String = "We'd like your permission to track your activity across apps and websites to provide you with a personalized experience.",
+            benefits: [ATTBenefit] = [
+                ATTBenefit(icon: "sparkles", text: "Personalized content"),
+                ATTBenefit(icon: "chart.line.uptrend.xyaxis", text: "Better insights"),
+                ATTBenefit(icon: "heart.fill", text: "Improved experience")
+            ],
+            allowButtonText: String = "Allow Tracking",
+            denyButtonText: String = "Ask App Not to Track"
+        ) {
+            self.title = title
+            self.description = description
+            self.benefits = benefits
+            self.allowButtonText = allowButtonText
+            self.denyButtonText = denyButtonText
+        }
+    }
+    
+    public struct ATTBenefit {
+        let icon: String
+        let text: String
+        
+        public init(icon: String, text: String) {
+            self.icon = icon
+            self.text = text
         }
     }
     
@@ -79,7 +119,7 @@ public final class TangentSwiftSDK {
         }
         
         // Initialize Tracking
-        // ATT will be handled automatically
+        ATTManager.shared.configure(with: config.attConfiguration)
     }
 }
 

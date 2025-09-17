@@ -45,44 +45,56 @@ public final class RCPurchaseController: PurchaseController {
   /// someone tries to purchase a product on one of your paywalls.
   public func purchase(product: SuperwallKit.StoreProduct) async -> PurchaseResult {
     do {
-      guard let sk2Product = product.sk2Product else {
-        throw PurchasingError.sk2ProductNotFound
-      }
-      let storeProduct = RevenueCat.StoreProduct(sk2Product: sk2Product)
-      let revenueCatResult = try await Purchases.shared.purchase(product: storeProduct)
-      
-      if revenueCatResult.userCancelled {
-        // Track purchase cancellation using TangentSwiftSDK
+      if #available(iOS 15.0, *) {
+        guard let sk2Product = product.sk2Product else {
+          throw PurchasingError.sk2ProductNotFound
+        }
+        let storeProduct = RevenueCat.StoreProduct(sk2Product: sk2Product)
+        let revenueCatResult = try await Purchases.shared.purchase(product: storeProduct)
+        
+        if revenueCatResult.userCancelled {
+          // Track purchase cancellation using TangentSwiftSDK
+          await MainActor.run {
+            TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
+              "source": "revenuecat_purchase_controller",
+              "product_id": storeProduct.productIdentifier,
+              "reason": "user_cancelled"
+            ])
+          }
+          return .cancelled
+        } else {
+          // Track successful purchase using TangentSwiftSDK
+          await MainActor.run {
+            TangentSwiftSDK.shared.analytics.track(event: .purchaseCompleted, properties: [
+              "source": "revenuecat_purchase_controller",
+              "product_id": storeProduct.productIdentifier
+            ])
+            
+            // Track revenue
+            let price = NSDecimalNumber(decimal: storeProduct.price).doubleValue
+            TangentSwiftSDK.shared.analytics.trackRevenue(
+              amount: price,
+              productId: storeProduct.productIdentifier
+            )
+            
+            // Track subscription activation
+            TangentSwiftSDK.shared.analytics.track(event: .subscriptionActivated, properties: [
+              "source": "revenuecat_purchase_controller",
+              "product_id": storeProduct.productIdentifier
+            ])
+          }
+          return .purchased
+        }
+      } else {
+        // For iOS 14, return failed with unsupported error
         await MainActor.run {
           TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
             "source": "revenuecat_purchase_controller",
-            "product_id": storeProduct.productIdentifier,
-            "reason": "user_cancelled"
+            "product_id": product.productIdentifier,
+            "reason": "ios_version_unsupported"
           ])
         }
-        return .cancelled
-      } else {
-        // Track successful purchase using TangentSwiftSDK
-        await MainActor.run {
-          TangentSwiftSDK.shared.analytics.track(event: .purchaseCompleted, properties: [
-            "source": "revenuecat_purchase_controller",
-            "product_id": storeProduct.productIdentifier
-          ])
-          
-          // Track revenue
-          let price = NSDecimalNumber(decimal: storeProduct.price).doubleValue
-          TangentSwiftSDK.shared.analytics.trackRevenue(
-            amount: price,
-            productId: storeProduct.productIdentifier
-          )
-          
-          // Track subscription activation
-          TangentSwiftSDK.shared.analytics.track(event: .subscriptionActivated, properties: [
-            "source": "revenuecat_purchase_controller",
-            "product_id": storeProduct.productIdentifier
-          ])
-        }
-        return .purchased
+        return .failed(PurchasingError.sk2ProductNotFound)
       }
     } catch let error as ErrorCode {
       // Track purchase errors using TangentSwiftSDK

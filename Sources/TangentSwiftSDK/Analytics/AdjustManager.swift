@@ -46,12 +46,8 @@ public final class AdjustManager: NSObject, ObservableObject {
     }
     
     /// Track onboarding completion
-    public func trackOnboardingCompleted(zodiacSign: String? = nil) {
-        var parameters: [String: String] = [:]
-        if let zodiacSign = zodiacSign {
-            parameters["zodiac_sign"] = zodiacSign
-        }
-        trackCustomEvent("onboarding_completed", parameters: parameters)
+    public func trackOnboardingCompleted(additionalProperties: [String: String] = [:]) {
+        trackCustomEvent("onboarding_completed", parameters: additionalProperties)
     }
     
     /// Track paywall view

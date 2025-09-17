@@ -7,10 +7,17 @@ public enum AnalyticsEvent: String, CaseIterable {
     case sessionStart = "Session Start"
     case sessionEnd = "Session End"
 
-    // Dashboard
-    case dashboardViewed = "Dashboard Viewed"
+    // Onboarding
+    case onboardingStarted = "Onboarding Started"
+    case onboardingCompleted = "Onboarding Completed"
+    case onboardingStepCompleted = "Onboarding Step Completed"
     
-    // Chat
+    // Main App Content
+    case homeViewed = "Home Viewed"
+    case contentViewed = "Content Viewed"
+    case featureAccessed = "Feature Accessed"
+    
+    // Communication/Chat (generic)
     case chatStarted = "Chat Started"
     case chatMessageSent = "Chat Message Sent"
     case chatMessageReceived = "Chat Message Received"

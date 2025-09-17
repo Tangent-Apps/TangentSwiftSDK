@@ -7,7 +7,7 @@ let package = Package(
     name: "TangentSwiftSDK",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v16)
+        .iOS(.v14)
     ],
     products: [
         .library(
