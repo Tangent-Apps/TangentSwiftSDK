@@ -44,8 +44,8 @@ public final class MonetizationService: ObservableObject {
     }
     
     /// Purchase a product
-    public func purchaseProduct(_ product: StoreProduct) async -> Bool {
-        return await RevenueCatManager.shared.purchaseProduct(product)
+    public func purchaseProduct(_ product: Package) async -> Bool {
+        return await RevenueCatManager.shared.purchase(package: product)
     }
     
     /// Restore purchases
@@ -60,8 +60,4 @@ public final class MonetizationService: ObservableObject {
         RevenueCatManager.shared.identify(userId: userId)
     }
     
-    /// Logout user
-    public func logout() {
-        RevenueCatManager.shared.logout()
-    }
 }

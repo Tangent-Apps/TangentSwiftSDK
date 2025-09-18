@@ -39,115 +39,178 @@ public final class RevenueCatManager: NSObject, ObservableObject {
     public func checkSubscriptionStatus() async {
         do {
             let customerInfo = try await Purchases.shared.customerInfo()
-            await MainActor.run {
-                self.isSubscribed = !customerInfo.activeSubscriptions.isEmpty
-            }
+            self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
+                               !customerInfo.activeSubscriptions.isEmpty
         } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                print("❌ RevenueCat: Error checking subscription status - \(error)")
-            }
+            self.errorMessage = error.localizedDescription
+            print("❌ RevenueCat: Error checking subscription status - \(error)")
         }
     }
     
     // MARK: - Fetch Offerings
     public func fetchOfferings() async {
+        isLoading = true
+        defer { isLoading = false }
         do {
             let offerings = try await Purchases.shared.offerings()
-            await MainActor.run {
-                self.offerings = offerings
-            }
+            self.offerings = offerings
+            
         } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                print("❌ RevenueCat: Error fetching offerings - \(error)")
-            }
+            print("❌ RevenueCat: Error fetching offerings: \(error)")
+            self.errorMessage = error.localizedDescription
         }
     }
     
     // MARK: - Purchase Product
-    public func purchaseProduct(_ product: StoreProduct) async -> Bool {
+    public func purchase(package: Package) async -> Bool {
         isLoading = true
-        defer { isLoading = false }
+        errorMessage = nil
+        
+        // Track purchase attempt
+        MixpanelManager.shared.track(event: .purchaseStarted, properties: [
+            "source": "revenuecat_manager",
+            "product_id": package.storeProduct.productIdentifier,
+            "package_type": package.packageType.debugDescription
+        ])
         
         do {
-            let (_, customerInfo, _) = try await Purchases.shared.purchase(product: product)
+            let result = try await Purchases.shared.purchase(package: package)
             
-            // Update subscription status
-            isSubscribed = !customerInfo.activeSubscriptions.isEmpty
-            
-            // Track purchase in analytics
-            let priceAsDouble = NSDecimalNumber(decimal: product.price).doubleValue
-            
-            MixpanelManager.shared.trackRevenue(
-                amount: priceAsDouble,
-                productId: product.productIdentifier
-            )
-            
-            AdjustManager.shared.trackPurchaseCompleted(
-                productId: product.productIdentifier,
-                amount: priceAsDouble,
-                source: "paywall",
-                eventToken: "purchase_token" // This should be configured per app
-            )
-            
-            print("✅ RevenueCat: Purchase successful - \(product.productIdentifier)")
-            return true
+            // Check if purchase was successful (not cancelled)
+            if !result.userCancelled {
+                // Update subscription status
+                self.isSubscribed = result.customerInfo.entitlements["Pro"]?.isActive == true ||
+                                   !result.customerInfo.activeSubscriptions.isEmpty
+                
+                // Track successful purchase
+                MixpanelManager.shared.track(event: .purchaseCompleted, properties: [
+                    "source": "revenuecat_manager",
+                    "product_id": package.storeProduct.productIdentifier,
+                    "package_type": package.packageType.debugDescription
+                ])
+                
+                // Track revenue
+                let price = package.storeProduct.price as NSDecimalNumber
+                MixpanelManager.shared.trackRevenue(
+                    amount: price.doubleValue,
+                    productId: package.storeProduct.productIdentifier
+                )
+                
+                
+                print("✅ RevenueCat: Purchase successful")
+                isLoading = false
+                return true
+            } else {
+                // Track purchase cancellation
+                MixpanelManager.shared.track(event: .purchaseFailed, properties: [
+                    "source": "revenuecat_manager",
+                    "product_id": package.storeProduct.productIdentifier,
+                    "reason": "user_cancelled"
+                ])
+            }
             
         } catch {
-            errorMessage = error.localizedDescription
+            print("❌ RevenueCat: Purchase error: \(error)")
+            self.errorMessage = error.localizedDescription
             
-            // Track failed purchase
-            AdjustManager.shared.trackPurchaseFailed(
-                productId: product.productIdentifier,
-                reason: error.localizedDescription,
-                source: "paywall"
-            )
-            
-            print("❌ RevenueCat: Purchase failed - \(error)")
-            return false
+            // Track purchase error
+            MixpanelManager.shared.track(event: .purchaseFailed, properties: [
+                "source": "revenuecat_manager",
+                "product_id": package.storeProduct.productIdentifier,
+                "error_description": error.localizedDescription
+            ])
         }
+        
+        isLoading = false
+        return false
     }
     
     // MARK: - Purchase by Product ID (Convenience Method)
     public func purchase(productId: String) async -> Bool {
-        guard let offerings = offerings else {
-            print("❌ RevenueCat: No offerings available")
-            return false
-        }
+        isLoading = true
+        errorMessage = nil
         
-        // Find the product in available offerings
-        for offering in offerings.all.values {
-            if let product = offering.availablePackages.first(where: { $0.storeProduct.productIdentifier == productId })?.storeProduct {
-                return await purchaseProduct(product)
+        do {
+            let products: [StoreProduct] = await Purchases.shared.products([productId])
+            guard let product = products.first else {
+                errorMessage = "Product not found"
+                print("❌ RevenueCat: Product not found: \(productId)")
+                isLoading = false
+                return false
             }
+            
+            let result = try await Purchases.shared.purchase(product: product)
+            
+            // Check if purchase was successful (not cancelled)
+            if !result.userCancelled {
+                // Update subscription status
+                self.isSubscribed = result.customerInfo.entitlements["pro"]?.isActive == true ||
+                                   !result.customerInfo.activeSubscriptions.isEmpty
+                
+                print("✅ RevenueCat: Purchase successful for product: \(productId)")
+                isLoading = false
+                return true
+            }
+            
+        } catch {
+            print("❌ RevenueCat: Purchase error for \(productId): \(error)")
+            self.errorMessage = error.localizedDescription
         }
         
-        print("❌ RevenueCat: Product not found - \(productId)")
+        isLoading = false
         return false
     }
     
     // MARK: - Restore Purchases
     public func restorePurchases() async -> Bool {
         isLoading = true
-        defer { isLoading = false }
+        errorMessage = nil
+        
+        // Track restore attempt
+        MixpanelManager.shared.track(event: .purchaseRestored, properties: [
+            "source": "revenuecat_manager",
+            "action": "restore_attempt"
+        ])
         
         do {
             let customerInfo = try await Purchases.shared.restorePurchases()
-            isSubscribed = !customerInfo.activeSubscriptions.isEmpty
             
-            // Track restore in analytics
-            AdjustManager.shared.trackPurchaseRestored(
-                productIds: Array(customerInfo.activeSubscriptions),
-                source: "restore_button"
-            )
+            // Update subscription status
+            self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
+                               !customerInfo.activeSubscriptions.isEmpty
+            
+            // Track successful restoration
+            MixpanelManager.shared.track(event: .purchaseRestored, properties: [
+                "source": "revenuecat_manager",
+                "success": true,
+                "active_subscriptions": Array(customerInfo.activeSubscriptions),
+                "active_entitlements": Array(customerInfo.entitlements.active.keys)
+            ])
+            
+            // If user has active subscriptions, track subscription activation
+            if self.isSubscribed {
+                MixpanelManager.shared.track(event: .subscriptionActivated, properties: [
+                    "source": "restore_purchases",
+                    "active_subscriptions": Array(customerInfo.activeSubscriptions)
+                ])
+            }
             
             print("✅ RevenueCat: Restore successful")
-            return true
+            isLoading = false
+            return isSubscribed
             
         } catch {
-            errorMessage = error.localizedDescription
-            print("❌ RevenueCat: Restore failed - \(error)")
+            print("❌ RevenueCat: Restore error: \(error)")
+            self.errorMessage = error.localizedDescription
+            
+            // Track restoration failure
+            MixpanelManager.shared.track(event: .purchaseFailed, properties: [
+                "source": "revenuecat_manager",
+                "action": "restore_purchases",
+                "error_description": error.localizedDescription
+            ])
+            
+            isLoading = false
             return false
         }
     }
@@ -168,25 +231,27 @@ public final class RevenueCatManager: NSObject, ObservableObject {
         }
     }
     
-    public func logout() {
-        Purchases.shared.logOut { customerInfo, error in
-            if let error = error {
-                print("❌ RevenueCat: Error logging out - \(error)")
-            } else {
-                print("✅ RevenueCat: User logged out")
-                Task { @MainActor in
-                    if let customerInfo = customerInfo {
-                        self.isSubscribed = !customerInfo.activeSubscriptions.isEmpty
-                    }
-                }
-            }
-        }
-    }
     
     // MARK: - Helper Methods
     
+    /// Get localized price string for a product
+    public func getPriceString(for productId: String) -> String? {
+        // Try to get from offerings first (faster if available)
+        if let offerings = offerings,
+           let offering = offerings.current,
+           let package = offering.availablePackages.first(where: {
+               $0.storeProduct.productIdentifier == productId
+           }) {
+            return package.localizedPriceString
+        }
+        
+        // If offerings not available, fetch product directly (this will be async in real usage)
+        // For now, return nil and let UI use fallback pricing
+        return nil
+    }
+    
     /// Get localized price string for a product (async version)
-    public func getPriceString(for productId: String) async -> String? {
+    public func getPriceStringAsync(for productId: String) async -> String? {
         let products: [StoreProduct] = await Purchases.shared.products([productId])
         guard let product = products.first else {
             return nil
@@ -215,8 +280,39 @@ public final class RevenueCatManager: NSObject, ObservableObject {
 extension RevenueCatManager: PurchasesDelegate {
     nonisolated public func purchases(_ purchases: Purchases, receivedUpdated customerInfo: CustomerInfo) {
         Task { @MainActor in
-            self.isSubscribed = !customerInfo.activeSubscriptions.isEmpty
-            print("📱 RevenueCat: Customer info updated - Active subscriptions: \(customerInfo.activeSubscriptions.count)")
+            let wasSubscribed = self.isSubscribed
+            
+            // Update subscription status when customer info changes
+            self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
+                               !customerInfo.activeSubscriptions.isEmpty
+            
+            // Track subscription status changes
+            if !wasSubscribed && self.isSubscribed {
+                // User just became subscribed
+                MixpanelManager.shared.track(event: .subscriptionActivated, properties: [
+                    "source": "revenuecat_delegate",
+                    "active_subscriptions": Array(customerInfo.activeSubscriptions),
+                    "active_entitlements": Array(customerInfo.entitlements.active.keys),
+                    "trigger": "customer_info_updated"
+                ])
+            } else if wasSubscribed && !self.isSubscribed {
+                // User just lost subscription
+                MixpanelManager.shared.track(event: .subscriptionCancelled, properties: [
+                    "source": "revenuecat_delegate",
+                    "trigger": "customer_info_updated"
+                ])
+            }
+            
+            // Track general customer info updates
+            MixpanelManager.shared.track(event: .featureUsed, properties: [
+                "feature": "customer_info_updated",
+                "is_subscribed": self.isSubscribed,
+                "active_subscriptions_count": customerInfo.activeSubscriptions.count,
+                "active_entitlements_count": customerInfo.entitlements.active.count
+            ])
+            
+            // Notify Superwall of subscription status change
+//            SuperwallManager.shared.updateSubscriptionStatus()
         }
     }
 }
