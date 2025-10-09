@@ -80,7 +80,8 @@ final class RCPurchaseController: PurchaseController {
             AdjustManager.shared.trackPurchaseCompleted(
               productId: storeProduct.productIdentifier,
               amount: price,
-              source: "revenuecat_purchase_controller", eventToken: storeProduct.productIdentifier.description
+              currency: storeProduct.currencyCode ?? "USD",
+              source: "revenuecat_purchase_controller", eventToken: "30tcgt"
             )
           }
           
@@ -89,11 +90,6 @@ final class RCPurchaseController: PurchaseController {
             "source": "revenuecat_purchase_controller",
             "product_id": storeProduct.productIdentifier
           ])
-          
-          AdjustManager.shared.trackSubscriptionActivated(
-            productId: storeProduct.productIdentifier,
-            source: "revenuecat_purchase_controller"
-          )
         }
         return .purchased
       }
@@ -135,6 +131,7 @@ final class RCPurchaseController: PurchaseController {
       
       // Track successful restoration
       await MainActor.run {
+        AdjustManager.shared.trackEvent("93azwp")
         MixpanelManager.shared.track(event: .purchaseRestored, properties: [
           "source": "revenuecat_purchase_controller",
           "active_subscriptions": Array(customerInfo.activeSubscriptions),
