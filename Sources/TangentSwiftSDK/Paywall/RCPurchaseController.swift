@@ -81,7 +81,7 @@ final class RCPurchaseController: PurchaseController {
               productId: storeProduct.productIdentifier,
               amount: price,
               currency: storeProduct.currencyCode ?? "USD",
-              source: "revenuecat_purchase_controller", eventToken: "30tcgt"
+              source: "revenuecat_purchase_controller"
             )
           }
           
