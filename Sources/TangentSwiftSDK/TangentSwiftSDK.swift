@@ -12,24 +12,30 @@ public final class TangentSwiftSDK {
     public struct Configuration {
         let mixpanelToken: String?
         let adjustAppToken: String?
+        let adjustPurchaseEventToken: String?
         let revenueCatAPIKey: String?
         let superwallAPIKey: String?
         let firebaseConfigPath: String?
+        let enableATT: Bool
         let attConfiguration: ATTConfiguration?
-        
+
         public init(
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
+            adjustPurchaseEventToken: String? = nil,
             revenueCatAPIKey: String? = nil,
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
+            enableATT: Bool = false,
             attConfiguration: ATTConfiguration? = nil
         ) {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
+            self.adjustPurchaseEventToken = adjustPurchaseEventToken
             self.revenueCatAPIKey = revenueCatAPIKey
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
+            self.enableATT = enableATT
             self.attConfiguration = attConfiguration
         }
     }
@@ -99,27 +105,33 @@ public final class TangentSwiftSDK {
     
     @MainActor private func setupServices() {
         guard let config = configuration else { return }
-        
+
         // Initialize Analytics
         if let mixpanelToken = config.mixpanelToken {
             MixpanelManager.shared.initialize(token: mixpanelToken)
         }
-        
-        if let adjustToken = config.adjustAppToken {
-            AdjustManager.shared.initialize(appToken: adjustToken)
+
+        if let adjustToken = config.adjustAppToken,
+           let purchaseEventToken = config.adjustPurchaseEventToken {
+            AdjustManager.shared.initialize(
+                appToken: adjustToken,
+                purchaseEventToken: purchaseEventToken
+            )
         }
-        
+
         // Initialize Monetization
         if let revenueCatKey = config.revenueCatAPIKey {
             RevenueCatManager.shared.initialize(apiKey: revenueCatKey)
         }
-        
+
         if let superwallKey = config.superwallAPIKey {
             SuperwallManager.shared.initialize(apiKey: superwallKey)
         }
-        
-        // Initialize Tracking
-        ATTManager.shared.configure(with: config.attConfiguration)
+
+        // Initialize Tracking (Optional)
+        if config.enableATT {
+            ATTManager.shared.configure(with: config.attConfiguration)
+        }
     }
 }
 
