@@ -11,6 +11,7 @@ public final class SuperwallManager: NSObject, ObservableObject {
     
     // MARK: - Properties
     @Published public private(set) var isInitialized = false
+    @Published public var paywallDismissed: Bool = false // Tracks when Superwall paywall is dismissed
     private let purchaseController = RCPurchaseController()
     
     // MARK: - Initialization
@@ -88,11 +89,16 @@ extension SuperwallManager: SuperwallDelegate {
                 
             case .paywallClose:
                 print("🚀 Superwall paywall closed")
+
+                // Notify observers that paywall was dismissed
+                self.paywallDismissed = true
+                NotificationCenter.default.post(name: .superwallPaywallDismissed, object: nil)
+
                 TangentSwiftSDK.shared.analytics.track(event: .paywallDismissed, properties: [
                     "source": "superwall",
                     "event": eventName
                 ])
-                
+
                 // Show discount offer with smart logic after paywall is dismissed
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                     if !TangentSwiftSDK.shared.paywall.isSubscribed {
@@ -153,4 +159,9 @@ extension SuperwallManager: SuperwallDelegate {
         print("📱 Superwall Log [\(level)]: \(message ?? "")")
         #endif
     }
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    public static let superwallPaywallDismissed = Notification.Name("superwallPaywallDismissed")
 }
