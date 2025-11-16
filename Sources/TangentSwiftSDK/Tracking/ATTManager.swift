@@ -16,7 +16,8 @@ public final class ATTManager: ObservableObject {
     @Published public var trackingStatus: ATTrackingManager.AuthorizationStatus = .notDetermined
     @Published public var hasRequestedPermission = false
     @Published public var isShowingATTAlert = false
-    
+    @Published public private(set) var isEnabled = false
+
     // MARK: - Private Properties
     private var permissionRequestCompletion: ((Bool) -> Void)?
     private var attConfiguration: TangentSwiftSDK.ATTConfiguration?
@@ -30,6 +31,8 @@ public final class ATTManager: ObservableObject {
     // MARK: - Configuration
     internal func configure(with attConfiguration: TangentSwiftSDK.ATTConfiguration?) {
         self.attConfiguration = attConfiguration
+        self.isEnabled = true
+        print("✅ ATT: Enabled and configured")
     }
     
     // MARK: - Public Methods
@@ -37,19 +40,26 @@ public final class ATTManager: ObservableObject {
     /// Request App Tracking Transparency permission
     /// - Parameter completion: Callback with the result (true if granted, false if denied/restricted)
     public func requestTrackingPermission(completion: @escaping (Bool) -> Void = { _ in }) {
+        // Check if ATT is enabled
+        guard isEnabled else {
+            print("⚠️ ATT: Not enabled, skipping permission request")
+            completion(false)
+            return
+        }
+
         // Store completion for later use
         permissionRequestCompletion = completion
-        
+
         // Check if we should request permission
         guard shouldRequestPermission() else {
             completion(isTrackingAllowed)
             return
         }
-        
+
         // Mark that we're about to request permission
         hasRequestedPermission = true
         isShowingATTAlert = true
-        
+
         // Request permission
         ATTrackingManager.requestTrackingAuthorization { [weak self] status in
             DispatchQueue.main.async {
@@ -92,17 +102,22 @@ public final class ATTManager: ObservableObject {
     }
     
     // MARK: - Analytics Integration
-    
+
     /// Update analytics services with tracking permission
     public func updateAnalyticsWithTrackingPermission() {
+        guard isEnabled else {
+            print("⚠️ ATT: Not enabled, skipping analytics update")
+            return
+        }
+
         let isAllowed = isTrackingAllowed
-        
+
         // Update Mixpanel
         MixpanelManager.shared.updateTrackingPermission(isAllowed)
-        
+
         // Update Adjust
         AdjustManager.shared.updateTrackingPermission(isAllowed)
-        
+
         // Track the permission result
         trackPermissionResult(isAllowed)
     }

@@ -7,30 +7,35 @@ public final class AdjustManager: NSObject, ObservableObject {
     
     @Published public private(set) var isInitialized = false
     @Published public private(set) var adid: String?
-    
+
+    private var purchaseEventToken: String?
+
     private override init() {
         super.init()
     }
     
     // MARK: - Configuration
     
-    public func initialize(appToken: String, environment: String = "production") {
+    public func initialize(appToken: String, environment: String = "production", purchaseEventToken: String) {
         let adjustEnvironment = environment == "sandbox" ? ADJEnvironmentSandbox : ADJEnvironmentProduction
-        
+
         let config = ADJConfig(
             appToken: appToken,
             environment: adjustEnvironment
         )
-        
+
         // Set delegate for attribution callbacks
         config?.delegate = self
-        
+
+        // Store purchase event token
+        self.purchaseEventToken = purchaseEventToken
+
         // Initialize Adjust
         Adjust.appDidLaunch(config)
-        
+
         isInitialized = true
         print("✅ Adjust: Configured successfully with token: \(appToken)")
-        
+
         // Track app launch
         trackAppLaunch()
     }
@@ -68,18 +73,23 @@ public final class AdjustManager: NSObject, ObservableObject {
     }
     
     /// Track purchase completed with revenue
-    public func trackPurchaseCompleted(productId: String, amount: Double, currency: String = "USD", source: String, eventToken: String) {
-        // Create revenue event
+    public func trackPurchaseCompleted(productId: String, amount: Double, currency: String = "USD", source: String) {
+        // Create revenue event with configured purchase event token
+        guard let eventToken = purchaseEventToken else {
+            print("⚠️ Adjust: Purchase event token not configured, skipping revenue tracking")
+            return
+        }
+
         if let revenueEvent = ADJEvent(eventToken: eventToken) {
             revenueEvent.setRevenue(amount, currency: currency)
             revenueEvent.setProductId(productId)
             revenueEvent.addCallbackParameter("source", value: source)
             revenueEvent.addCallbackParameter("product_id", value: productId)
-            
+
             Adjust.trackEvent(revenueEvent)
             print("💰 Adjust: Revenue tracked - \(amount) \(currency) for \(productId)")
         }
-        
+
         // Also track general purchase completion
         trackCustomEvent("purchase_completed", parameters: [
             "product_id": productId,
