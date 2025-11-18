@@ -13,6 +13,9 @@ public final class SuperwallManager: NSObject, ObservableObject {
     @Published public private(set) var isInitialized = false
     @Published public var paywallDismissed: Bool = false // Tracks when Superwall paywall is dismissed
     private let purchaseController = RCPurchaseController()
+
+    // Completion handler called when subscription is successful
+    public var onSubscriptionComplete: (() -> Void)?
     
     // MARK: - Initialization
     private override init() {
@@ -124,6 +127,9 @@ extension SuperwallManager: SuperwallDelegate {
                     "source": "superwall",
                     "event": eventName
                 ])
+
+                // Call completion handler if set
+                self.onSubscriptionComplete?()
                 
             case .transactionFail:
                 print("❌ Superwall transaction failed")
