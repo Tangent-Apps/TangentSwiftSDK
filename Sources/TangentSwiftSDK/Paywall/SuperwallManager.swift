@@ -73,6 +73,33 @@ public final class SuperwallManager: NSObject, ObservableObject {
         ])
         print("✅ Superwall: Updated onboarding status to \(hasCompleted)")
     }
+
+    // MARK: - Debug: Fetch Paywalls
+    /// Fetches and prints Superwall configuration for debugging integration issues
+    public func fetchPaywalls() async {
+        print("🔍 Superwall: Checking configuration...")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+        guard isInitialized else {
+            print("❌ Superwall: Not initialized. Call initialize(apiKey:) first.")
+            return
+        }
+
+        print("✅ Superwall: SDK is initialized")
+        print("   User ID: \(Superwall.shared.userId)")
+        print("   Is Logged In: \(Superwall.shared.isLoggedIn)")
+        print("   Subscription Status: \(Superwall.shared.subscriptionStatus)")
+
+        // Get user attributes
+        let attributes = Superwall.shared.userAttributes
+        print("   User Attributes: \(attributes)")
+
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("✅ Superwall: Configuration check complete")
+        print("   Note: Paywalls are configured remotely in Superwall dashboard")
+        print("   Trigger a placement to test paywall display")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    }
 }
 
 // MARK: - SuperwallDelegate
