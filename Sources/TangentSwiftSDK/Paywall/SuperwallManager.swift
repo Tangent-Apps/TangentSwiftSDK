@@ -3,7 +3,6 @@ import SuperwallKit
 import RevenueCat
 
 // MARK: - Superwall Manager
-@MainActor
 public final class SuperwallManager: NSObject, ObservableObject {
     
     // MARK: - Singleton

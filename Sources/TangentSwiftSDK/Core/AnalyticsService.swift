@@ -2,7 +2,6 @@ import Foundation
 import Mixpanel
 
 // MARK: - Analytics Service
-@MainActor
 public final class AnalyticsService {
     public static let shared = AnalyticsService()
     

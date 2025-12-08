@@ -1,7 +1,6 @@
 import Foundation
 import Adjust
 
-@MainActor
 public final class AdjustManager: NSObject, ObservableObject {
     public static let shared = AdjustManager()
     

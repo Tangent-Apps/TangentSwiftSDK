@@ -6,7 +6,6 @@ import SwiftUI
 import UIKit
 
 // MARK: - ATT Manager
-@MainActor
 public final class ATTManager: ObservableObject {
     
     // MARK: - Singleton

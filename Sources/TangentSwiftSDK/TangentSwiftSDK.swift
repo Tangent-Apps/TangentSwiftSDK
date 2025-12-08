@@ -88,7 +88,7 @@ public final class TangentSwiftSDK {
     
     /// Initialize the SDK with configuration
     /// - Parameter configuration: SDK configuration with API keys
-    @MainActor public func initialize(with configuration: Configuration) {
+    public func initialize(with configuration: Configuration) {
         guard !isInitialized else {
             print("⚠️ TangentSwiftSDK: SDK already initialized")
             return
@@ -103,7 +103,7 @@ public final class TangentSwiftSDK {
     
     // MARK: - Private Methods
     
-    @MainActor private func setupServices() {
+    private func setupServices() {
         guard let config = configuration else { return }
 
         // Initialize Analytics
@@ -136,7 +136,6 @@ public final class TangentSwiftSDK {
 }
 
 // MARK: - Public Extensions for Easy Access
-@MainActor
 public extension TangentSwiftSDK {
     
     /// Access to analytics services

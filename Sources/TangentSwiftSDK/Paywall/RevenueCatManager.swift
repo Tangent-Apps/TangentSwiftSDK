@@ -3,7 +3,6 @@ import RevenueCat
 import StoreKit
 
 // MARK: - RevenueCat Manager
-@MainActor
 public final class RevenueCatManager: NSObject, ObservableObject {
     
     // MARK: - Singleton

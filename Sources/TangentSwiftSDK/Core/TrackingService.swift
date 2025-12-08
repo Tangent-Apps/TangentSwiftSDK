@@ -2,7 +2,6 @@ import Foundation
 import AppTrackingTransparency
 
 // MARK: - Tracking Service
-@MainActor
 public final class TrackingService: ObservableObject {
     public static let shared = TrackingService()
 

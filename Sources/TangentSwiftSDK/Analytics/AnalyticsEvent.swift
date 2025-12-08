@@ -16,6 +16,9 @@ public enum AnalyticsEvent: String, CaseIterable {
     case homeViewed = "Home Viewed"
     case contentViewed = "Content Viewed"
     case featureAccessed = "Feature Accessed"
+
+    // Streak
+    case streakViewed = "Streak Viewed"
     
     // Communication/Chat (generic)
     case chatStarted = "Chat Started"
