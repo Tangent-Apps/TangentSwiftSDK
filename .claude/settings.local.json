@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(swift package resolve:*)",
+      "Bash(swift build:*)",
+      "Bash(swift package show-dependencies:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:dev.adjust.com)",
+      "Bash(xcodebuild:*)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}

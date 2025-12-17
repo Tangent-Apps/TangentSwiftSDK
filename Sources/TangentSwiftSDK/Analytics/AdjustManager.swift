@@ -1,5 +1,5 @@
 import Foundation
-import Adjust
+@preconcurrency import AdjustSdk
 
 @MainActor
 public final class AdjustManager: NSObject, ObservableObject {
@@ -17,24 +17,61 @@ public final class AdjustManager: NSObject, ObservableObject {
     // MARK: - Configuration
     
     public func initialize(appToken: String, environment: String = "production", purchaseEventToken: String) {
+        // Trim whitespace from token
+        let cleanToken = appToken.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        print("🔍 Adjust: Raw token = '\(appToken)'")
+        print("🔍 Adjust: Clean token = '\(cleanToken)'")
+        print("🔍 Adjust: Token length = \(cleanToken.count) (should be ~12)")
+
         let adjustEnvironment = environment == "sandbox" ? ADJEnvironmentSandbox : ADJEnvironmentProduction
 
-        let config = ADJConfig(
-            appToken: appToken,
+        guard let config = ADJConfig(
+            appToken: cleanToken,
             environment: adjustEnvironment
-        )
+        ) else {
+            print("❌ Adjust: FAILED to create ADJConfig! Token or environment invalid.")
+            return
+        }
+
+        print("✅ Adjust: ADJConfig created successfully")
+
+        // Enable debug logging to see what's happening
+        config.logLevel = ADJLogLevel.verbose
 
         // Set delegate for attribution callbacks
-        config?.delegate = self
+        config.delegate = self
+
+        // IMPORTANT: Wait for ATT authorization before sending first session
+        // This delays the first session until ATT dialog is answered (up to 120 seconds)
+        config.attConsentWaitingInterval = 120
 
         // Store purchase event token
         self.purchaseEventToken = purchaseEventToken
 
+        print("🔍 Adjust: About to call initSdk...")
+
         // Initialize Adjust
-        Adjust.appDidLaunch(config)
+        Adjust.initSdk(config)
+
+        print("🔍 Adjust: initSdk called")
 
         isInitialized = true
-        print("✅ Adjust: Configured successfully with token: \(appToken)")
+        print("✅ Adjust: Configured with environment: \(adjustEnvironment == ADJEnvironmentSandbox ? "SANDBOX" : "PRODUCTION")")
+        print("✅ Adjust: App token: \(appToken)")
+
+        // Check SDK status after short delay
+        Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
+            let enabled = await Adjust.isEnabled()
+            print("🔍 Adjust: SDK enabled = \(enabled)")
+
+            if let adid = await Adjust.adid() {
+                print("🔍 Adjust: ADID after 3s = \(adid)")
+            } else {
+                print("🔍 Adjust: ADID still nil after 3s")
+            }
+        }
 
         // Track app launch
         trackAppLaunch()
@@ -168,19 +205,20 @@ public final class AdjustManager: NSObject, ObservableObject {
     
     private func handleAttributionCallback(_ attribution: ADJAttribution?) {
         guard let attribution = attribution else { return }
-        
-        // Get ADID
-        let adid = Adjust.adid()
-        Task { @MainActor in
-            self.adid = adid
-            
-            print("📈 Adjust Attribution:")
-            print("  - ADID: \(adid ?? "N/A")")
-            print("  - Network: \(attribution.network ?? "N/A")")
-            print("  - Campaign: \(attribution.campaign ?? "N/A")")
-            print("  - Creative: \(attribution.creative ?? "N/A")")
-            print("  - Click Label: \(attribution.clickLabel ?? "N/A")")
-        }
+
+        // Get ADID via completion handler (v5 API)
+        Adjust.adid(completionHandler: { [weak self] adid in
+            Task { @MainActor in
+                self?.adid = adid
+
+                print("📈 Adjust Attribution:")
+                print("  - ADID: \(adid ?? "N/A")")
+                print("  - Network: \(attribution.network ?? "N/A")")
+                print("  - Campaign: \(attribution.campaign ?? "N/A")")
+                print("  - Creative: \(attribution.creative ?? "N/A")")
+                print("  - Click Label: \(attribution.clickLabel ?? "N/A")")
+            }
+        })
     }
     
     // MARK: - ATT Support
@@ -216,6 +254,25 @@ extension AdjustManager: AdjustDelegate {
     
     nonisolated public func adjustSessionTrackingSucceeded(_ sessionSuccessResponseData: ADJSessionSuccess?) {
         print("✅ Adjust: Session tracking succeeded")
+
+        // ADID becomes available after session tracking - fetch it here
+        Adjust.adid { adid in
+            Task { @MainActor in
+                if let adid = adid {
+                    AdjustManager.shared.adid = adid
+                    print("✅ Adjust: ADID retrieved after session: \(adid)")
+
+                    // Notify RevenueCat
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("AdjustADIDAvailable"),
+                        object: nil,
+                        userInfo: ["adid": adid]
+                    )
+                } else {
+                    print("⚠️ Adjust: ADID still nil after session success")
+                }
+            }
+        }
     }
     
     nonisolated public func adjustSessionTrackingFailed(_ sessionFailureResponseData: ADJSessionFailure?) {
