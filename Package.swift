@@ -18,7 +18,7 @@ let package = Package(
     dependencies: [
         // Analytics
         .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "5.0.0"),
-        .package(url: "https://github.com/adjust/ios_sdk", from: "4.0.0"),
+        .package(url: "https://github.com/adjust/ios_sdk", from: "5.0.0"),
         
         // Paywall & Subscriptions
         .package(url: "https://github.com/RevenueCat/purchases-ios-spm", from: "5.0.0"),
@@ -29,7 +29,7 @@ let package = Package(
             name: "TangentSwiftSDK",
             dependencies: [
                 .product(name: "Mixpanel", package: "mixpanel-swift"),
-                .product(name: "Adjust", package: "ios_sdk"),
+                .product(name: "AdjustSdk", package: "ios_sdk"),
                 .product(name: "RevenueCat", package: "purchases-ios-spm"),
                 .product(name: "SuperwallKit", package: "Superwall-iOS"),
             ]
