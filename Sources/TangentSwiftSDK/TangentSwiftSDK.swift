@@ -162,4 +162,9 @@ public extension TangentSwiftSDK {
     var superwall: SuperwallManager {
         return SuperwallManager.shared
     }
+
+    /// Access to remote config services
+    var remoteConfig: RemoteConfigManager {
+        return RemoteConfigManager.shared
+    }
 }

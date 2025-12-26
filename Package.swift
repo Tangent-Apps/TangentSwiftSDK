@@ -19,10 +19,13 @@ let package = Package(
         // Analytics
         .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "5.0.0"),
         .package(url: "https://github.com/adjust/ios_sdk", from: "4.0.0"),
-        
+
         // Paywall & Subscriptions
         .package(url: "https://github.com/RevenueCat/purchases-ios-spm", from: "5.0.0"),
         .package(url: "https://github.com/superwall/Superwall-iOS", from: "4.0.0"),
+
+        // Firebase
+        .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "11.0.0"),
     ],
     targets: [
         .target(
@@ -32,6 +35,7 @@ let package = Package(
                 .product(name: "Adjust", package: "ios_sdk"),
                 .product(name: "RevenueCat", package: "purchases-ios-spm"),
                 .product(name: "SuperwallKit", package: "Superwall-iOS"),
+                .product(name: "FirebaseRemoteConfig", package: "firebase-ios-sdk"),
             ]
         ),
         .testTarget(
