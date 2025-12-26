@@ -1,7 +1,6 @@
 import Foundation
 @preconcurrency import AdjustSdk
 
-@MainActor
 public final class AdjustManager: NSObject, ObservableObject {
     public static let shared = AdjustManager()
     

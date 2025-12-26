@@ -3,12 +3,11 @@ import SuperwallKit
 import RevenueCat
 
 // MARK: - Superwall Manager
-@MainActor
 public final class SuperwallManager: NSObject, ObservableObject {
-    
+
     // MARK: - Singleton
     public static let shared = SuperwallManager()
-    
+
     // MARK: - Properties
     @Published public private(set) var isInitialized = false
     @Published public var paywallDismissed: Bool = false // Tracks when Superwall paywall is dismissed
@@ -16,6 +15,9 @@ public final class SuperwallManager: NSObject, ObservableObject {
 
     // Completion handler called when subscription is successful
     public var onSubscriptionComplete: (() -> Void)?
+
+    /// Controls whether to show discount paywall after Superwall dismissal
+    private var showDiscountPaywallOnDismiss: Bool = false
     
     // MARK: - Initialization
     private override init() {
@@ -43,12 +45,15 @@ public final class SuperwallManager: NSObject, ObservableObject {
         print("📱 Superwall: Registered event - \(event)")
     }
     
-    public func showPaywall() {
+    /// Shows the Superwall paywall
+    /// - Parameter showDiscountAfterDismiss: If `true`, shows a discount paywall after user dismisses. Default is `false`.
+    public func showPaywall(showDiscountAfterDismiss: Bool = false) {
+        self.showDiscountPaywallOnDismiss = showDiscountAfterDismiss
         Superwall.shared.register(placement: "campaign_trigger")
     }
     
     public func showDiscountPayWall() {
-        Superwall.shared.register(placement: "paywall_decline")
+        Superwall.shared.register(placement: "discount_offer")
     }
     
     public func setUserAttributes(_ attributes: [String: Any]) {
@@ -72,6 +77,33 @@ public final class SuperwallManager: NSObject, ObservableObject {
             "has_completed_onboarding": hasCompleted
         ])
         print("✅ Superwall: Updated onboarding status to \(hasCompleted)")
+    }
+
+    // MARK: - Debug: Fetch Paywalls
+    /// Fetches and prints Superwall configuration for debugging integration issues
+    public func fetchPaywalls() async {
+        print("🔍 Superwall: Checking configuration...")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+        guard isInitialized else {
+            print("❌ Superwall: Not initialized. Call initialize(apiKey:) first.")
+            return
+        }
+
+        print("✅ Superwall: SDK is initialized")
+        print("   User ID: \(Superwall.shared.userId)")
+        print("   Is Logged In: \(Superwall.shared.isLoggedIn)")
+        print("   Subscription Status: \(Superwall.shared.subscriptionStatus)")
+
+        // Get user attributes
+        let attributes = Superwall.shared.userAttributes
+        print("   User Attributes: \(attributes)")
+
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("✅ Superwall: Configuration check complete")
+        print("   Note: Paywalls are configured remotely in Superwall dashboard")
+        print("   Trigger a placement to test paywall display")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
 }
 
@@ -102,11 +134,13 @@ extension SuperwallManager: SuperwallDelegate {
                     "event": eventName
                 ])
 
-                // Show discount offer with smart logic after paywall is dismissed
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    if !TangentSwiftSDK.shared.paywall.isSubscribed {
-                        print("🎟️ Showing discount paywall after Superwall dismissal")
-                        self.showDiscountPayWall()
+                // Show discount offer with smart logic after paywall is dismissed (if enabled)
+                if self.showDiscountPaywallOnDismiss {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        if !TangentSwiftSDK.shared.paywall.isSubscribed {
+                            print("🎟️ Showing discount paywall after Superwall dismissal")
+                            self.showDiscountPayWall()
+                        }
                     }
                 }
                 

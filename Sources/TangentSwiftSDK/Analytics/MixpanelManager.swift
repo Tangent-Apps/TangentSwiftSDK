@@ -2,7 +2,6 @@ import Foundation
 import Mixpanel
 
 // MARK: - Mixpanel Manager
-@MainActor
 public final class MixpanelManager: NSObject {
     
     // MARK: - Singleton

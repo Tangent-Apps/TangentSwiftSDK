@@ -3,7 +3,6 @@ import RevenueCat
 import StoreKit
 
 // MARK: - Monetization Service
-@MainActor
 public final class MonetizationService: ObservableObject {
     public static let shared = MonetizationService()
     
