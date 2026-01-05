@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adjust/ios_sdk",
       "state" : {
-        "revision" : "20c877e47176535c428e1fc96f1dabc3a2bd1e0d",
-        "version" : "5.5.0"
+        "revision" : "81948fa49d914896a8f467fec670e494ca6d7408",
+        "version" : "5.5.1"
       }
     },
     {
