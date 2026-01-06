@@ -31,17 +31,16 @@ public final class ATTManager: ObservableObject {
     internal func configure(with attConfiguration: TangentSwiftSDK.ATTConfiguration?) {
         self.attConfiguration = attConfiguration
         self.isEnabled = true
-        print("✅ ATT: Enabled and configured")
+        print("✅ ATT: Initialized")
     }
-    
+
     // MARK: - Public Methods
-    
+
     /// Request App Tracking Transparency permission
     /// - Parameter completion: Callback with the result (true if granted, false if denied/restricted)
     public func requestTrackingPermission(completion: @escaping (Bool) -> Void = { _ in }) {
         // Check if ATT is enabled
         guard isEnabled else {
-            print("⚠️ ATT: Not enabled, skipping permission request")
             completion(false)
             return
         }
@@ -104,10 +103,7 @@ public final class ATTManager: ObservableObject {
 
     /// Update analytics services with tracking permission
     public func updateAnalyticsWithTrackingPermission() {
-        guard isEnabled else {
-            print("⚠️ ATT: Not enabled, skipping analytics update")
-            return
-        }
+        guard isEnabled else { return }
 
         let isAllowed = isTrackingAllowed
 
@@ -170,8 +166,6 @@ public final class ATTManager: ObservableObject {
         
         // Store that we've requested permission
         UserDefaults.standard.set(true, forKey: "ATTPermissionRequested")
-        
-        print("📊 ATT Permission Result: \(statusDescription)")
     }
     
     private func trackPermissionResult(_ granted: Bool) {
