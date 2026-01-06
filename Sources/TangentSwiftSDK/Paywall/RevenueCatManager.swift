@@ -31,7 +31,7 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             await fetchOfferings()
         }
         
-        print("✅ RevenueCat: Configured successfully")
+        print("✅ RevenueCat: Initialized")
     }
     
     // MARK: - Check Subscription Status
@@ -64,44 +64,14 @@ public final class RevenueCatManager: NSObject, ObservableObject {
     /// Fetches and prints products by IDs for debugging integration issues
     /// - Parameter productIds: Array of product identifiers to fetch from App Store Connect
     public func fetchProducts(productIds: [String]) async {
-        print("🔍 RevenueCat: Fetching products...")
-        print("   Product IDs: \(productIds)")
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         isLoading = true
         defer { isLoading = false }
 
         let products: [StoreProduct] = await Purchases.shared.products(productIds)
 
         if products.isEmpty {
-            print("❌ RevenueCat: No products found")
-            print("   Possible reasons:")
-            print("   - Product IDs don't match App Store Connect")
-            print("   - Products not approved/available in your region")
-            print("   - Agreements not signed in App Store Connect")
             self.errorMessage = "No products found for the given IDs"
-        } else {
-            print("✅ RevenueCat: Found \(products.count) product(s)")
-            print("")
-
-            for product in products {
-                print("   📱 Product: \(product.productIdentifier)")
-                print("      Title: \(product.localizedTitle)")
-                print("      Description: \(product.localizedDescription)")
-                print("      Price: \(product.localizedPriceString)")
-                print("      Price (Decimal): \(product.price)")
-                print("      Currency: \(product.currencyCode ?? "N/A")")
-                print("      Product Type: \(product.productType)")
-                if let subscriptionPeriod = product.subscriptionPeriod {
-                    print("      Subscription Period: \(subscriptionPeriod)")
-                }
-                if let introPrice = product.introductoryDiscount {
-                    print("      Intro Price: \(introPrice.localizedPriceString)")
-                }
-                print("")
-            }
         }
-
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
     
     // MARK: - Purchase Product
@@ -196,7 +166,6 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             }
             
         } catch {
-            print("❌ RevenueCat: Purchase error for \(productId): \(error)")
             self.errorMessage = error.localizedDescription
         }
         
@@ -238,12 +207,10 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                 ])
             }
             
-            print("✅ RevenueCat: Restore successful")
             isLoading = false
             return isSubscribed
-            
+
         } catch {
-            print("❌ RevenueCat: Restore error: \(error)")
             self.errorMessage = error.localizedDescription
             
             // Track restoration failure
@@ -261,10 +228,7 @@ public final class RevenueCatManager: NSObject, ObservableObject {
     // MARK: - User Management
     public func identify(userId: String) {
         Purchases.shared.logIn(userId) { customerInfo, created, error in
-            if let error = error {
-                print("❌ RevenueCat: Error identifying user - \(error)")
-            } else {
-                print("✅ RevenueCat: User identified - \(userId)")
+            if error == nil {
                 Task { @MainActor in
                     if let customerInfo = customerInfo {
                         self.isSubscribed = !customerInfo.activeSubscriptions.isEmpty
