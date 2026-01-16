@@ -85,24 +85,16 @@ public final class SuperwallManager: NSObject, ObservableObject {
 extension SuperwallManager: SuperwallDelegate {
     nonisolated public func handleSuperwallEvent(withInfo eventInfo: SuperwallEventInfo) {
         Task { @MainActor in
-            let eventName = String(describing: eventInfo.event)
-
             switch eventInfo.event {
             case .paywallOpen:
-                TangentSwiftSDK.shared.analytics.track(event: .paywallViewed, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
+                TangentSwiftSDK.shared.analytics.track(event: .paywallViewed)
 
             case .paywallClose:
                 // Notify observers that paywall was dismissed
                 self.paywallDismissed = true
                 NotificationCenter.default.post(name: .superwallPaywallDismissed, object: nil)
 
-                TangentSwiftSDK.shared.analytics.track(event: .paywallDismissed, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
+                TangentSwiftSDK.shared.analytics.track(event: .paywallDismissed)
 
                 // Show discount offer with smart logic after paywall is dismissed (if enabled)
                 if self.showDiscountPaywallOnDismiss {
@@ -113,45 +105,12 @@ extension SuperwallManager: SuperwallDelegate {
                     }
                 }
 
-            case .transactionStart:
-                TangentSwiftSDK.shared.analytics.track(event: .purchaseStarted, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
-
             case .transactionComplete:
-                TangentSwiftSDK.shared.analytics.track(event: .purchaseCompleted, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
-                TangentSwiftSDK.shared.analytics.track(event: .subscriptionActivated, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
-
-                // Call completion handler if set
+                // Call completion handler if set (purchase tracking handled by RCPurchaseController)
                 self.onSubscriptionComplete?()
 
-            case .transactionFail:
-                TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
-
-            case .transactionAbandon:
-                TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
-                    "source": "superwall",
-                    "event": eventName,
-                    "reason": "user_cancelled"
-                ])
-
-            case .transactionRestore:
-                TangentSwiftSDK.shared.analytics.track(event: .purchaseRestored, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
-
             default:
+                // Purchase events (start, complete, fail, abandon, restore) are tracked by RCPurchaseController
                 break
             }
         }

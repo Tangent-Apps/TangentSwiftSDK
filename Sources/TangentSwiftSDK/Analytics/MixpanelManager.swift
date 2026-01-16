@@ -87,14 +87,12 @@ public final class MixpanelManager: NSObject {
             "product_id": productId,
             "currency": "USD"
         ]
-        
+
         if let transactionId = transactionId {
             properties["transaction_id"] = transactionId
         }
-        
+
         mixpanel?.people.trackCharge(amount: amount, properties: properties)
-        track(event: .purchaseCompleted, properties: properties)
-        
         print("💰 Mixpanel: Revenue tracked - $\(amount) for \(productId)")
     }
     
