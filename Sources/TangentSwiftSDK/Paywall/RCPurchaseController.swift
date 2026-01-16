@@ -26,7 +26,7 @@ final class RCPurchaseController: PurchaseController {
 
   // MARK: - Subscription Status Helpers
 
-  private func isTrialUser(from customerInfo: CustomerInfo) -> Bool {
+  private func isTrialUser(from customerInfo: RevenueCat.CustomerInfo) -> Bool {
     if let proEntitlement = customerInfo.entitlements["Pro"],
        proEntitlement.isActive,
        proEntitlement.periodType == .trial {
@@ -35,7 +35,7 @@ final class RCPurchaseController: PurchaseController {
     return false
   }
 
-  private func isPaidUser(from customerInfo: CustomerInfo) -> Bool {
+  private func isPaidUser(from customerInfo: RevenueCat.CustomerInfo) -> Bool {
     if let proEntitlement = customerInfo.entitlements["Pro"],
        proEntitlement.isActive,
        proEntitlement.periodType == .normal {
@@ -44,12 +44,12 @@ final class RCPurchaseController: PurchaseController {
     return false
   }
 
-  private func isSubscribed(from customerInfo: CustomerInfo) -> Bool {
+  private func isSubscribed(from customerInfo: RevenueCat.CustomerInfo) -> Bool {
     return customerInfo.entitlements["Pro"]?.isActive == true ||
            !customerInfo.activeSubscriptions.isEmpty
   }
 
-  private func getSubscriptionType(from customerInfo: CustomerInfo) -> String {
+  private func getSubscriptionType(from customerInfo: RevenueCat.CustomerInfo) -> String {
     guard let proEntitlement = customerInfo.entitlements["Pro"], proEntitlement.isActive else {
       return "none"
     }
