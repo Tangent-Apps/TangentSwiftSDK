@@ -27,21 +27,30 @@ public enum AnalyticsEvent: String, CaseIterable {
     case chatLimitReached = "Chat Limit Reached"
     
     
-    // Subscription
-    case paywallViewed = "Paywall Viewed"
-    case paywallDismissed = "Paywall Dismissed"
-    case discountViewShown = "Discount View Shown"
+    // Subscription & Paywall
+    case paywallViewed = "SuperWall Paywall Viewed"
+    case paywallDismissed = "SuperWall Paywall Dismissed"
+    case discountViewShown = "SuperWall Discount View Shown"
+
+    // Purchase Flow
     case purchaseStarted = "Purchase Started"
     case purchaseCompleted = "Purchase Completed"
+    case purchaseCancelled = "Purchase Cancelled"
     case purchaseFailed = "Purchase Failed"
-    case purchaseRestored = "Purchase Restored"
+
+    // Restore Purchase Flow
+    case restorePurchaseStarted = "Restore Purchase Started"
+    case restorePurchaseCompleted = "Restore Purchase Completed"
+    case restorePurchaseFailed = "Restore Purchase Failed"
+
+    // Subscription Status
     case subscriptionActivated = "Subscription Activated"
     case subscriptionCancelled = "Subscription Cancelled"
-    
+    case subscriptionStatus = "Subscription Status"
+
     // User Actions
     case buttonTapped = "Button Tapped"
     case screenViewed = "Screen Viewed"
-    case featureUsed = "Feature Used"
     case errorOccurred = "Error Occurred"
     
     // Privacy & Permissions

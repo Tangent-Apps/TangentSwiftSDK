@@ -10,6 +10,8 @@ public final class RevenueCatManager: NSObject, ObservableObject {
     
     // MARK: - Published Properties
     @Published public var isSubscribed: Bool = false
+    @Published public var isTrialUser: Bool = false
+    @Published public var isPaidUser: Bool = false
     @Published public var isLoading: Bool = false
     @Published public var offerings: Offerings?
     @Published public var errorMessage: String?
@@ -40,6 +42,8 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             let customerInfo = try await Purchases.shared.customerInfo()
             self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
                                !customerInfo.activeSubscriptions.isEmpty
+            self.isTrialUser = checkIsTrialUser(from: customerInfo)
+            self.isPaidUser = checkIsPaidUser(from: customerInfo)
         } catch {
             self.errorMessage = error.localizedDescription
             print("❌ RevenueCat: Error checking subscription status - \(error)")
@@ -81,9 +85,8 @@ public final class RevenueCatManager: NSObject, ObservableObject {
         
         // Track purchase attempt
         MixpanelManager.shared.track(event: .purchaseStarted, properties: [
-            "source": "revenuecat_manager",
             "product_id": package.storeProduct.productIdentifier,
-            "package_type": package.packageType.debugDescription
+            "plan_type": package.packageType.debugDescription
         ])
         
         do {
@@ -94,12 +97,17 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                 // Update subscription status
                 self.isSubscribed = result.customerInfo.entitlements["Pro"]?.isActive == true ||
                                    !result.customerInfo.activeSubscriptions.isEmpty
-                
+                self.isTrialUser = checkIsTrialUser(from: result.customerInfo)
+                self.isPaidUser = checkIsPaidUser(from: result.customerInfo)
+
                 // Track successful purchase
                 MixpanelManager.shared.track(event: .purchaseCompleted, properties: [
-                    "source": "revenuecat_manager",
                     "product_id": package.storeProduct.productIdentifier,
-                    "package_type": package.packageType.debugDescription
+                    "plan_type": package.packageType.debugDescription,
+                    "is_subscribed": self.isSubscribed,
+                    "is_trial": self.isTrialUser,
+                    "is_paid": self.isPaidUser,
+                    "subscription_type": getSubscriptionType(from: result.customerInfo)
                 ])
                 
                 // Track revenue
@@ -115,10 +123,8 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                 return true
             } else {
                 // Track purchase cancellation
-                MixpanelManager.shared.track(event: .purchaseFailed, properties: [
-                    "source": "revenuecat_manager",
-                    "product_id": package.storeProduct.productIdentifier,
-                    "reason": "user_cancelled"
+                MixpanelManager.shared.track(event: .purchaseCancelled, properties: [
+                    "product_id": package.storeProduct.productIdentifier
                 ])
             }
             
@@ -128,9 +134,8 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             
             // Track purchase error
             MixpanelManager.shared.track(event: .purchaseFailed, properties: [
-                "source": "revenuecat_manager",
                 "product_id": package.storeProduct.productIdentifier,
-                "error_description": error.localizedDescription
+                "error": error.localizedDescription
             ])
         }
         
@@ -159,7 +164,9 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                 // Update subscription status
                 self.isSubscribed = result.customerInfo.entitlements["Pro"]?.isActive == true ||
                                    !result.customerInfo.activeSubscriptions.isEmpty
-                
+                self.isTrialUser = checkIsTrialUser(from: result.customerInfo)
+                self.isPaidUser = checkIsPaidUser(from: result.customerInfo)
+
                 print("✅ RevenueCat: Purchase successful for product: \(productId)")
                 isLoading = false
                 return true
@@ -178,11 +185,8 @@ public final class RevenueCatManager: NSObject, ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        // Track restore attempt
-        MixpanelManager.shared.track(event: .purchaseRestored, properties: [
-            "source": "revenuecat_manager",
-            "action": "restore_attempt"
-        ])
+        // Track restore started
+        MixpanelManager.shared.track(event: .restorePurchaseStarted)
         
         do {
             let customerInfo = try await Purchases.shared.restorePurchases()
@@ -190,20 +194,25 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             // Update subscription status
             self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
                                !customerInfo.activeSubscriptions.isEmpty
-            
+            self.isTrialUser = checkIsTrialUser(from: customerInfo)
+            self.isPaidUser = checkIsPaidUser(from: customerInfo)
+
             // Track successful restoration
-            MixpanelManager.shared.track(event: .purchaseRestored, properties: [
-                "source": "revenuecat_manager",
-                "success": true,
-                "active_subscriptions": Array(customerInfo.activeSubscriptions),
-                "active_entitlements": Array(customerInfo.entitlements.active.keys)
+            MixpanelManager.shared.track(event: .restorePurchaseCompleted, properties: [
+                "has_active_subscription": self.isSubscribed,
+                "is_trial": self.isTrialUser,
+                "is_paid": self.isPaidUser,
+                "subscription_type": getSubscriptionType(from: customerInfo)
             ])
-            
+
             // If user has active subscriptions, track subscription activation
             if self.isSubscribed {
                 MixpanelManager.shared.track(event: .subscriptionActivated, properties: [
-                    "source": "restore_purchases",
-                    "active_subscriptions": Array(customerInfo.activeSubscriptions)
+                    "trigger": "restore_purchase",
+                    "is_subscribed": self.isSubscribed,
+                    "is_trial": self.isTrialUser,
+                    "is_paid": self.isPaidUser,
+                    "subscription_type": getSubscriptionType(from: customerInfo)
                 ])
             }
             
@@ -214,10 +223,8 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             self.errorMessage = error.localizedDescription
             
             // Track restoration failure
-            MixpanelManager.shared.track(event: .purchaseFailed, properties: [
-                "source": "revenuecat_manager",
-                "action": "restore_purchases",
-                "error_description": error.localizedDescription
+            MixpanelManager.shared.track(event: .restorePurchaseFailed, properties: [
+                "error": error.localizedDescription
             ])
             
             isLoading = false
@@ -281,6 +288,45 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             return false
         }
     }
+
+    // MARK: - Subscription Status Helpers
+
+    /// Check if user is currently on a free trial
+    private func checkIsTrialUser(from customerInfo: CustomerInfo) -> Bool {
+        if let proEntitlement = customerInfo.entitlements["Pro"],
+           proEntitlement.isActive,
+           proEntitlement.periodType == .trial {
+            return true
+        }
+        return false
+    }
+
+    /// Check if user is a paid subscriber (not trial, not intro offer)
+    private func checkIsPaidUser(from customerInfo: CustomerInfo) -> Bool {
+        if let proEntitlement = customerInfo.entitlements["Pro"],
+           proEntitlement.isActive,
+           proEntitlement.periodType == .normal {
+            return true
+        }
+        return false
+    }
+
+    /// Get subscription type as readable string
+    private func getSubscriptionType(from customerInfo: CustomerInfo) -> String {
+        guard let proEntitlement = customerInfo.entitlements["Pro"], proEntitlement.isActive else {
+            return "none"
+        }
+        switch proEntitlement.periodType {
+        case .trial:
+            return "trial"
+        case .intro:
+            return "intro_offer"
+        case .normal:
+            return "full paid"
+        @unknown default:
+            return "unknown"
+        }
+    }
 }
 
 // MARK: - PurchasesDelegate
@@ -288,36 +334,50 @@ extension RevenueCatManager: PurchasesDelegate {
     nonisolated public func purchases(_ purchases: Purchases, receivedUpdated customerInfo: CustomerInfo) {
         Task { @MainActor in
             let wasSubscribed = self.isSubscribed
-            
+            let wasTrialUser = self.isTrialUser
+
             // Update subscription status when customer info changes
             self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
                                !customerInfo.activeSubscriptions.isEmpty
-            
+            self.isTrialUser = checkIsTrialUser(from: customerInfo)
+            self.isPaidUser = checkIsPaidUser(from: customerInfo)
+
+            let subscriptionType = getSubscriptionType(from: customerInfo)
+
             // Track subscription status changes
             if !wasSubscribed && self.isSubscribed {
                 // User just became subscribed
                 MixpanelManager.shared.track(event: .subscriptionActivated, properties: [
-                    "source": "revenuecat_delegate",
-                    "active_subscriptions": Array(customerInfo.activeSubscriptions),
-                    "active_entitlements": Array(customerInfo.entitlements.active.keys),
-                    "trigger": "customer_info_updated"
+                    "trigger": "status_change",
+                    "is_subscribed": self.isSubscribed,
+                    "is_trial": self.isTrialUser,
+                    "is_paid": self.isPaidUser,
+                    "subscription_type": subscriptionType
                 ])
             } else if wasSubscribed && !self.isSubscribed {
-                // User just lost subscription
+                // User subscription expired or was cancelled
                 MixpanelManager.shared.track(event: .subscriptionCancelled, properties: [
-                    "source": "revenuecat_delegate",
-                    "trigger": "customer_info_updated"
+                    "was_trial": wasTrialUser
+                ])
+            } else if wasTrialUser && !self.isTrialUser && self.isSubscribed {
+                // User converted from trial to paid
+                MixpanelManager.shared.track(event: .subscriptionActivated, properties: [
+                    "trigger": "trial_converted",
+                    "is_subscribed": self.isSubscribed,
+                    "is_trial": false,
+                    "is_paid": true,
+                    "subscription_type": subscriptionType
                 ])
             }
-            
-            // Track general customer info updates
-            MixpanelManager.shared.track(event: .featureUsed, properties: [
-                "feature": "customer_info_updated",
-                "is_subscribed": self.isSubscribed,
-                "active_subscriptions_count": customerInfo.activeSubscriptions.count,
-                "active_entitlements_count": customerInfo.entitlements.active.count
+
+            // Track subscription status when app opens
+            MixpanelManager.shared.track(event: .subscriptionStatus, properties: [
+                "is_subscribed": self.isSubscribed, // has trial and paid users
+                "is_trial": self.isTrialUser, // trial only
+                "is_paid": self.isPaidUser, // full sub paid only
+                "subscription_type": subscriptionType // trial or full paid or offer
             ])
-            
+
             // Notify Superwall of subscription status change
 //            SuperwallManager.shared.updateSubscriptionStatus()
         }

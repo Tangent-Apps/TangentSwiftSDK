@@ -23,6 +23,48 @@ enum PurchasingError: LocalizedError {
 }
 
 final class RCPurchaseController: PurchaseController {
+
+  // MARK: - Subscription Status Helpers
+
+  private func isTrialUser(from customerInfo: RevenueCat.CustomerInfo) -> Bool {
+    if let proEntitlement = customerInfo.entitlements["Pro"],
+       proEntitlement.isActive,
+       proEntitlement.periodType == .trial {
+      return true
+    }
+    return false
+  }
+
+  private func isPaidUser(from customerInfo: RevenueCat.CustomerInfo) -> Bool {
+    if let proEntitlement = customerInfo.entitlements["Pro"],
+       proEntitlement.isActive,
+       proEntitlement.periodType == .normal {
+      return true
+    }
+    return false
+  }
+
+  private func isSubscribed(from customerInfo: RevenueCat.CustomerInfo) -> Bool {
+    return customerInfo.entitlements["Pro"]?.isActive == true ||
+           !customerInfo.activeSubscriptions.isEmpty
+  }
+
+  private func getSubscriptionType(from customerInfo: RevenueCat.CustomerInfo) -> String {
+    guard let proEntitlement = customerInfo.entitlements["Pro"], proEntitlement.isActive else {
+      return "none"
+    }
+    switch proEntitlement.periodType {
+    case .trial:
+      return "trial"
+    case .intro:
+      return "intro_offer"
+    case .normal:
+      return "full paid"
+    @unknown default:
+      return "unknown"
+    }
+  }
+
   // MARK: Sync Subscription Status
   /// Makes sure that Superwall knows the customer's entitlements by
   /// changing `Superwall.shared.entitlements`
@@ -54,41 +96,50 @@ final class RCPurchaseController: PurchaseController {
       if revenueCatResult.userCancelled {
         // Track purchase cancellation
         await MainActor.run {
-          MixpanelManager.shared.track(event: .purchaseFailed, properties: [
-            "source": "revenuecat_purchase_controller",
-            "product_id": storeProduct.productIdentifier,
-            "reason": "user_cancelled"
+          MixpanelManager.shared.track(event: .purchaseCancelled, properties: [
+            "product_id": storeProduct.productIdentifier
           ])
         }
         return .cancelled
       } else {
+        let customerInfo = revenueCatResult.customerInfo
+        let subscribed = isSubscribed(from: customerInfo)
+        let isTrial = isTrialUser(from: customerInfo)
+        let isPaid = isPaidUser(from: customerInfo)
+        let subscriptionType = getSubscriptionType(from: customerInfo)
+
         // Track successful purchase
         await MainActor.run {
           MixpanelManager.shared.track(event: .purchaseCompleted, properties: [
-            "source": "revenuecat_purchase_controller",
-            "product_id": storeProduct.productIdentifier
+            "product_id": storeProduct.productIdentifier,
+            "is_subscribed": subscribed,
+            "is_trial": isTrial,
+            "is_paid": isPaid,
+            "subscription_type": subscriptionType
           ])
-          
+
           // Track revenue with Mixpanel
           if let price = Double(storeProduct.price.description) {
             MixpanelManager.shared.trackRevenue(
               amount: price,
               productId: storeProduct.productIdentifier
             )
-            
+
             // Track revenue with Adjust
             AdjustManager.shared.trackPurchaseCompleted(
               productId: storeProduct.productIdentifier,
               amount: price,
-              currency: storeProduct.currencyCode ?? "USD",
-              source: "revenuecat_purchase_controller"
+              currency: storeProduct.currencyCode ?? "USD"
             )
           }
-          
+
           // Track subscription activation
           MixpanelManager.shared.track(event: .subscriptionActivated, properties: [
-            "source": "revenuecat_purchase_controller",
-            "product_id": storeProduct.productIdentifier
+            "trigger": "purchase",
+            "is_subscribed": subscribed,
+            "is_trial": isTrial,
+            "is_paid": isPaid,
+            "subscription_type": subscriptionType
           ])
         }
         return .purchased
@@ -97,13 +148,11 @@ final class RCPurchaseController: PurchaseController {
       // Track purchase errors
       await MainActor.run {
         MixpanelManager.shared.track(event: .purchaseFailed, properties: [
-          "source": "revenuecat_purchase_controller",
           "product_id": product.productIdentifier,
-          "error_code": error.errorCode,
-          "error_description": error.localizedDescription
+          "error": error.localizedDescription
         ])
       }
-      
+
       if error == .paymentPendingError {
         return .pending
       } else {
@@ -113,9 +162,8 @@ final class RCPurchaseController: PurchaseController {
       // Track general purchase errors
       await MainActor.run {
         MixpanelManager.shared.track(event: .purchaseFailed, properties: [
-          "source": "revenuecat_purchase_controller",
           "product_id": product.productIdentifier,
-          "error_description": error.localizedDescription
+          "error": error.localizedDescription
         ])
       }
       return .failed(error)
@@ -128,33 +176,39 @@ final class RCPurchaseController: PurchaseController {
   func restorePurchases() async -> RestorationResult {
     do {
       let customerInfo = try await Purchases.shared.restorePurchases()
-      
+      let subscribed = isSubscribed(from: customerInfo)
+      let isTrial = isTrialUser(from: customerInfo)
+      let isPaid = isPaidUser(from: customerInfo)
+      let subscriptionType = getSubscriptionType(from: customerInfo)
+
       // Track successful restoration
       await MainActor.run {
         AdjustManager.shared.trackEvent("93azwp")
-        MixpanelManager.shared.track(event: .purchaseRestored, properties: [
-          "source": "revenuecat_purchase_controller",
-          "active_subscriptions": Array(customerInfo.activeSubscriptions),
-          "active_entitlements": Array(customerInfo.entitlements.active.keys)
+        MixpanelManager.shared.track(event: .restorePurchaseCompleted, properties: [
+          "is_subscribed": subscribed,
+          "is_trial": isTrial,
+          "is_paid": isPaid,
+          "subscription_type": subscriptionType
         ])
-        
+
         // If user has active subscriptions, track subscription activation
-        if !customerInfo.activeSubscriptions.isEmpty {
+        if subscribed {
           MixpanelManager.shared.track(event: .subscriptionActivated, properties: [
-            "source": "restore_purchases",
-            "active_subscriptions": Array(customerInfo.activeSubscriptions)
+            "trigger": "restore_purchase",
+            "is_subscribed": subscribed,
+            "is_trial": isTrial,
+            "is_paid": isPaid,
+            "subscription_type": subscriptionType
           ])
         }
       }
-      
+
       return .restored
     } catch let error {
       // Track restoration failure
       await MainActor.run {
-        MixpanelManager.shared.track(event: .purchaseFailed, properties: [
-          "source": "revenuecat_purchase_controller",
-          "action": "restore_purchases",
-          "error_description": error.localizedDescription
+        MixpanelManager.shared.track(event: .restorePurchaseFailed, properties: [
+          "error": error.localizedDescription
         ])
       }
       return .failed(error)
