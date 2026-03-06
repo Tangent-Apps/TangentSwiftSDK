@@ -13,7 +13,6 @@ public final class TangentSwiftSDK {
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
-        let revenueCatAPIKey: String?
         let superwallAPIKey: String?
         let firebaseConfigPath: String?
         let enableATT: Bool
@@ -23,7 +22,6 @@ public final class TangentSwiftSDK {
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
-            revenueCatAPIKey: String? = nil,
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
@@ -32,7 +30,6 @@ public final class TangentSwiftSDK {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
-            self.revenueCatAPIKey = revenueCatAPIKey
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
@@ -116,11 +113,7 @@ public final class TangentSwiftSDK {
             )
         }
 
-        // Initialize Monetization
-        if let revenueCatKey = config.revenueCatAPIKey {
-            RevenueCatManager.shared.initialize(apiKey: revenueCatKey)
-        }
-
+        // Initialize Paywall
         if let superwallKey = config.superwallAPIKey {
             SuperwallManager.shared.initialize(apiKey: superwallKey)
         }
@@ -143,16 +136,6 @@ public extension TangentSwiftSDK {
     /// Access to tracking services
     var tracking: TrackingService {
         return TrackingService.shared
-    }
-    
-    /// Access to monetization services
-    var monetization: MonetizationService {
-        return MonetizationService.shared
-    }
-    
-    /// Access to paywall services (RevenueCat)
-    var paywall: RevenueCatManager {
-        return RevenueCatManager.shared
     }
     
     /// Access to superwall services

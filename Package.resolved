@@ -55,15 +55,6 @@
       }
     },
     {
-      "identity" : "purchases-ios-spm",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/RevenueCat/purchases-ios-spm",
-      "state" : {
-        "revision" : "6238361173aa15a02b99de0d6c003b24fa5fa444",
-        "version" : "5.52.1"
-      }
-    },
-    {
       "identity" : "superscript-ios",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superscript-iOS",

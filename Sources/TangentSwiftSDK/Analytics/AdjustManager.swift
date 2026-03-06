@@ -1,6 +1,5 @@
 import Foundation
 @preconcurrency import AdjustSdk
-import RevenueCat
 
 public final class AdjustManager: NSObject, ObservableObject {
     public static let shared = AdjustManager()
@@ -42,8 +41,7 @@ public final class AdjustManager: NSObject, ObservableObject {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             if let adid = await Adjust.adid(), self.adid == nil {
                 await MainActor.run { self.adid = adid }
-                Purchases.shared.attribution.setAdjustID(adid)
-                print("✅ Adjust: Set ADID on RevenueCat: \(adid)")
+                print("✅ Adjust: ADID available: \(adid)")
             }
         }
 
@@ -152,8 +150,7 @@ extension AdjustManager: AdjustDelegate {
             Task { @MainActor in
                 if let adid = adid {
                     AdjustManager.shared.adid = adid
-                    Purchases.shared.attribution.setAdjustID(adid)
-                    print("✅ Adjust: Set ADID on RevenueCat: \(adid)")
+                    print("✅ Adjust: ADID available: \(adid)")
 
                     NotificationCenter.default.post(
                         name: NSNotification.Name("AdjustADIDAvailable"),

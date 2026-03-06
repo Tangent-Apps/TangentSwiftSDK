@@ -15,17 +15,15 @@ final class TangentSwiftSDKTests: XCTestCase {
         let config = TangentSwiftSDK.Configuration(
             mixpanelToken: "test-token",
             adjustAppToken: "test-adjust-token",
-            revenueCatAPIKey: "test-rc-key",
             superwallAPIKey: "test-sw-key"
         )
-        
+
         // This would normally initialize the SDK
         // TangentSwiftSDK.shared.initialize(with: config)
-        
+
         // For testing, we just verify the configuration is created properly
         XCTAssertEqual(config.mixpanelToken, "test-token")
         XCTAssertEqual(config.adjustAppToken, "test-adjust-token")
-        XCTAssertEqual(config.revenueCatAPIKey, "test-rc-key")
         XCTAssertEqual(config.superwallAPIKey, "test-sw-key")
     }
     

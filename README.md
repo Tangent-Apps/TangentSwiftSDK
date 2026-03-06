@@ -1,13 +1,12 @@
 # TangentSwiftSDK
 
-A comprehensive iOS SDK for analytics, tracking, and monetization that integrates Mixpanel, Adjust, RevenueCat, Superwall, and App Tracking Transparency.
+A comprehensive iOS SDK for analytics, tracking, and monetization that integrates Mixpanel, Adjust, Superwall, and App Tracking Transparency.
 
 ## Features
 
 - 📊 **Analytics**: Mixpanel integration for event tracking and user analytics
 - 📈 **Attribution**: Adjust integration for attribution tracking and campaign analysis
-- 💰 **Monetization**: RevenueCat integration for subscription management
-- 🎯 **Paywall**: Superwall integration for dynamic paywalls
+- 💰 **Paywall**: Superwall integration for dynamic paywalls and subscription management
 - 🔒 **Privacy**: App Tracking Transparency (ATT) support
 - 🎨 **SwiftUI**: Ready-to-use SwiftUI components
 
@@ -47,7 +46,6 @@ import TangentSwiftSDK
 let config = TangentSwiftSDK.Configuration(
     mixpanelToken: "your-mixpanel-token",
     adjustAppToken: "your-adjust-token",
-    revenueCatAPIKey: "your-revenuecat-key",
     superwallAPIKey: "your-superwall-key"
 )
 
@@ -87,15 +85,11 @@ ATTPermissionView { granted in
 ### 4. Handle Subscriptions
 
 ```swift
-// Check subscription status
-await TangentSwiftSDK.shared.monetization.checkSubscriptionStatus()
+// Check subscription status via Superwall
+let isSubscribed = TangentSwiftSDK.shared.superwall.isSubscribed
 
-// Purchase a product
-if let offerings = TangentSwiftSDK.shared.monetization.offerings,
-   let package = offerings.current?.monthly {
-    let success = await TangentSwiftSDK.shared.monetization.purchaseProduct(package.storeProduct)
-    print("Purchase success: \(success)")
-}
+// Show paywall
+TangentSwiftSDK.shared.superwall.showPaywall()
 ```
 
 ## Advanced Usage
@@ -169,7 +163,7 @@ The SDK is organized into several modules:
 
 - **Analytics**: Mixpanel and Adjust integration
 - **Tracking**: App Tracking Transparency management
-- **Paywall**: RevenueCat and Superwall integration
+- **Paywall**: Superwall integration
 - **Core**: Service layer abstractions
 
 ## Events

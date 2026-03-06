@@ -1,6 +1,5 @@
 import Foundation
 import SuperwallKit
-import RevenueCat
 
 // MARK: - Superwall Manager
 public final class SuperwallManager: NSObject, ObservableObject {
@@ -11,50 +10,53 @@ public final class SuperwallManager: NSObject, ObservableObject {
     // MARK: - Properties
     @Published public private(set) var isInitialized = false
     @Published public var paywallDismissed: Bool = false // Tracks when Superwall paywall is dismissed
-    private let purchaseController = RCPurchaseController()
 
     // Completion handler called when subscription is successful
     public var onSubscriptionComplete: (() -> Void)?
 
     /// Controls whether to show discount paywall after Superwall dismissal
     private var showDiscountPaywallOnDismiss: Bool = false
-    
+
     // MARK: - Initialization
     private override init() {
         super.init()
     }
-    
+
     // MARK: - Configuration
     public func initialize(apiKey: String) {
-        Superwall.configure(
-            apiKey: apiKey,
-            purchaseController: purchaseController
-        )
+        Superwall.configure(apiKey: apiKey)
         Superwall.shared.delegate = self
-        
-        // Start subscription sync
-        purchaseController.syncSubscriptionStatus()
-        
+
         isInitialized = true
         print("✅ Superwall: Initialized")
+    }
+
+    // MARK: - Subscription Status
+
+    /// Check if user has an active subscription via Superwall
+    public var isSubscribed: Bool {
+        if case .active = Superwall.shared.subscriptionStatus {
+            return true
+        }
+        return false
     }
 
     // MARK: - Paywall Management
     public func register(event: String, params: [String: Any] = [:]) {
         Superwall.shared.register(placement: event, params: params)
     }
-    
+
     /// Shows the Superwall paywall
     /// - Parameter showDiscountAfterDismiss: If `true`, shows a discount paywall after user dismisses. Default is `false`.
     public func showPaywall(showDiscountAfterDismiss: Bool = false) {
         self.showDiscountPaywallOnDismiss = showDiscountAfterDismiss
         Superwall.shared.register(placement: "campaign_trigger")
     }
-    
+
     public func showDiscountPayWall() {
         Superwall.shared.register(placement: "discount_offer")
     }
-    
+
     public func setUserAttributes(_ attributes: [String: Any]) {
         Superwall.shared.setUserAttributes(attributes)
     }
@@ -99,18 +101,17 @@ extension SuperwallManager: SuperwallDelegate {
                 // Show discount offer with smart logic after paywall is dismissed (if enabled)
                 if self.showDiscountPaywallOnDismiss {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        if !TangentSwiftSDK.shared.paywall.isSubscribed {
+                        if !self.isSubscribed {
                             self.showDiscountPayWall()
                         }
                     }
                 }
 
             case .transactionComplete:
-                // Call completion handler if set (purchase tracking handled by RCPurchaseController)
+                // Call completion handler if set
                 self.onSubscriptionComplete?()
 
             default:
-                // Purchase events (start, complete, fail, abandon, restore) are tracked by RCPurchaseController
                 break
             }
         }
