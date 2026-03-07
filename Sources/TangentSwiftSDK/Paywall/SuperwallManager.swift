@@ -119,9 +119,24 @@ extension SuperwallManager: SuperwallDelegate {
 
     nonisolated public func handleLog(level: String, scope: String, message: String?, info: [String : Any]?, error: Error?) {
     }
+
+    public func subscriptionStatusDidChange(from oldValue: SuperwallKit.SubscriptionStatus, to newValue: SuperwallKit.SubscriptionStatus) {
+        print("📦 SuperwallManager: subscriptionStatus changed from \(oldValue) to \(newValue)")
+
+        NotificationCenter.default.post(
+            name: .superwallSubscriptionStatusDidChange,
+            object: nil,
+            userInfo: [
+                "oldValue": oldValue.description,
+                "newValue": newValue.description,
+                "isActive": newValue.isActive
+            ]
+        )
+    }
 }
 
 // MARK: - Notification Names
 extension Notification.Name {
     public static let superwallPaywallDismissed = Notification.Name("superwallPaywallDismissed")
+    public static let superwallSubscriptionStatusDidChange = Notification.Name("superwallSubscriptionStatusDidChange")
 }
