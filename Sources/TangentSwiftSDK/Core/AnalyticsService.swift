@@ -12,17 +12,11 @@ public final class AnalyticsService {
     /// Track a predefined analytics event
     public func track(event: AnalyticsEvent, properties: [String: MixpanelType]? = nil) {
         MixpanelManager.shared.track(event: event, properties: properties)
-        
-        // Also track with Adjust if it's a revenue event
-        if event == .purchaseCompleted || event == .subscriptionActivated {
-            AdjustManager.shared.trackCustomEvent(event.rawValue, parameters: convertToStringDict(properties))
-        }
     }
     
     /// Track a custom event by name
     public func trackCustomEvent(_ name: String, properties: [String: MixpanelType]? = nil) {
         MixpanelManager.shared.trackCustomEvent(name, properties: properties)
-        AdjustManager.shared.trackCustomEvent(name, parameters: convertToStringDict(properties))
     }
     
     /// Track screen view
@@ -76,15 +70,5 @@ public final class AnalyticsService {
         MixpanelManager.shared.endSession()
     }
     
-    // MARK: - Helper Methods
-    
-    private func convertToStringDict(_ properties: [String: MixpanelType]?) -> [String: String] {
-        guard let properties = properties else { return [:] }
-        
-        var stringDict: [String: String] = [:]
-        for (key, value) in properties {
-            stringDict[key] = "\(value)"
-        }
-        return stringDict
-    }
+
 }
