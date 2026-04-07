@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import SuperwallKit
 
 // MARK: - Superwall Manager
@@ -28,6 +29,9 @@ public final class SuperwallManager: NSObject, ObservableObject {
         Superwall.shared.delegate = self
 
         isInitialized = true
+        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+            Superwall.shared.identify(userId: vendorId)
+        }
         print("✅ Superwall: Initialized")
     }
 
@@ -59,6 +63,10 @@ public final class SuperwallManager: NSObject, ObservableObject {
 
     public func setUserAttributes(_ attributes: [String: Any]) {
         Superwall.shared.setUserAttributes(attributes)
+    }
+    
+    public func registerAdjustADID(adid: String) {
+        Superwall.shared.setIntegrationAttributes([.adjustId: adid])
     }
 
     public func identify(userId: String) {

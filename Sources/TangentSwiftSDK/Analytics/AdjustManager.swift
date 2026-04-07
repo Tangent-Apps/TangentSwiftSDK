@@ -15,7 +15,12 @@ public final class AdjustManager: NSObject, ObservableObject {
 
     // MARK: - Configuration
 
-    public func initialize(appToken: String, environment: String = "production", purchaseEventToken: String) {
+    public func initialize(
+        appToken: String,
+        environment: String = "production",
+        purchaseEventToken: String,
+        didGetADID: @escaping (String) -> Void
+    ) {
         let cleanToken = appToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let adjustEnvironment = environment == "sandbox" ? ADJEnvironmentSandbox : ADJEnvironmentProduction
 
@@ -42,6 +47,7 @@ public final class AdjustManager: NSObject, ObservableObject {
             if let adid = await Adjust.adid(), self.adid == nil {
                 await MainActor.run { self.adid = adid }
                 print("✅ Adjust: ADID available: \(adid)")
+                didGetADID(adid)
             }
         }
 

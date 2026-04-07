@@ -99,6 +99,10 @@ public final class TangentSwiftSDK {
     
     private func setupServices() {
         guard let config = configuration else { return }
+        // Initialize Paywall
+        if let superwallKey = config.superwallAPIKey {
+            SuperwallManager.shared.initialize(apiKey: superwallKey)
+        }
 
         // Initialize Analytics
         if let mixpanelToken = config.mixpanelToken {
@@ -109,13 +113,11 @@ public final class TangentSwiftSDK {
            let purchaseEventToken = config.adjustPurchaseEventToken {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
-                purchaseEventToken: purchaseEventToken
+                purchaseEventToken: purchaseEventToken,
+                didGetADID: { adid in
+                    SuperwallManager.shared.registerAdjustADID(adid: adid)
+                }
             )
-        }
-
-        // Initialize Paywall
-        if let superwallKey = config.superwallAPIKey {
-            SuperwallManager.shared.initialize(apiKey: superwallKey)
         }
 
         // Initialize Tracking (Optional)
