@@ -8,6 +8,7 @@ public final class AdjustManager: NSObject, ObservableObject {
     @Published public private(set) var adid: String?
 
     private var purchaseEventToken: String?
+    private var onADIDAvailable: ((String) -> Void)?
 
     private override init() {
         super.init()
@@ -36,6 +37,7 @@ public final class AdjustManager: NSObject, ObservableObject {
         config.delegate = self
         config.attConsentWaitingInterval = 120
         self.purchaseEventToken = purchaseEventToken
+        self.onADIDAvailable = didGetADID
 
         Adjust.initSdk(config)
         isInitialized = true
@@ -157,6 +159,9 @@ extension AdjustManager: AdjustDelegate {
                 if let adid = adid {
                     AdjustManager.shared.adid = adid
                     print("✅ Adjust: ADID available: \(adid)")
+
+                    // Forward ADID to Superwall (and any other registered callbacks)
+                    AdjustManager.shared.onADIDAvailable?(adid)
 
                     NotificationCenter.default.post(
                         name: NSNotification.Name("AdjustADIDAvailable"),

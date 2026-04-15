@@ -1,5 +1,7 @@
 import Foundation
 import UIKit
+import AdSupport
+import AppTrackingTransparency
 import SuperwallKit
 
 // MARK: - Superwall Manager
@@ -32,7 +34,27 @@ public final class SuperwallManager: NSObject, ObservableObject {
         if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
             Superwall.shared.identify(userId: vendorId)
         }
+        setDeviceIds()
         print("✅ Superwall: Initialized")
+    }
+
+    /// Sets IDFA/IDFV as Superwall user attributes so S2S integrations (Adjust, etc.)
+    /// receive device identifiers. Safe to call multiple times — call again after ATT
+    /// consent to pick up a newly available IDFA.
+    public func setDeviceIds() {
+        let idfa = ASIdentifierManager.shared().advertisingIdentifier.uuidString
+        let idfv = UIDevice.current.identifierForVendor?.uuidString
+
+        var attrs: [String: Any] = [:]
+        if idfa != "00000000-0000-0000-0000-000000000000" {
+            attrs["idfa"] = idfa
+        }
+        if let idfv {
+            attrs["idfv"] = idfv
+        }
+        if !attrs.isEmpty {
+            Superwall.shared.setUserAttributes(attrs)
+        }
     }
 
     // MARK: - Subscription Status
