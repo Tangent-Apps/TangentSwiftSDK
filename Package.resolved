@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adjust/adjust_signature_sdk.git",
       "state" : {
-        "revision" : "b54cae6aac6fdf980e16cbe4493c07a8e7011947",
-        "version" : "3.62.0"
+        "revision" : "8af71c556087b2f6cc35b70f0076b944b1b38e44",
+        "version" : "3.67.0"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adjust/ios_sdk",
       "state" : {
-        "revision" : "81948fa49d914896a8f467fec670e494ca6d7408",
-        "version" : "5.5.1"
+        "revision" : "0a8cccacfb354c36f8f7fbc57331e7d3a52ed9e5",
+        "version" : "5.6.2"
       }
     },
     {
@@ -41,8 +41,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mixpanel/mixpanel-swift",
       "state" : {
-        "revision" : "e0af743b6a54a1ba94702ba555acb675fd0ef47d",
-        "version" : "5.1.3"
+        "revision" : "5f3020832a9594d98c129bf010a2bcc9dc4fa959",
+        "version" : "5.2.0"
       }
     },
     {
@@ -59,8 +59,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superscript-iOS",
       "state" : {
-        "revision" : "bde42f1c7652a69a469677978ed97cba92c4dd2c",
-        "version" : "1.0.10"
+        "revision" : "711866edcb62dbd237c24ed3e5fa39fad0db639f",
+        "version" : "1.0.13"
       }
     },
     {
@@ -68,8 +68,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superwall-iOS",
       "state" : {
-        "revision" : "741e4c5ce6970499fe59896f23945c1ad9c9f118",
-        "version" : "4.11.2"
+        "revision" : "4850e1ade9f4e06d4ed796a3a89077de7c70fbf4",
+        "version" : "4.15.1"
       }
     }
   ],
