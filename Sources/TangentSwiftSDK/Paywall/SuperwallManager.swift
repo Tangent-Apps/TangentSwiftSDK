@@ -73,10 +73,11 @@ public final class SuperwallManager: NSObject, ObservableObject {
     }
 
     /// Shows the Superwall paywall
+    /// - Parameter placement: The Superwall campaign trigger to register. Default is `"campaign_trigger"`.
     /// - Parameter showDiscountAfterDismiss: If `true`, shows a discount paywall after user dismisses. Default is `false`.
-    public func showPaywall(showDiscountAfterDismiss: Bool = false) {
+    public func showPaywall(placement: String = "campaign_trigger", showDiscountAfterDismiss: Bool = false) {
         self.showDiscountPaywallOnDismiss = showDiscountAfterDismiss
-        Superwall.shared.register(placement: "campaign_trigger")
+        Superwall.shared.register(placement: placement)
     }
 
     public func showDiscountPayWall() {
