@@ -107,6 +107,11 @@ public final class SuperwallManager: NSObject, ObservableObject {
         ])
     }
 
+    // MARK: - Deep Link Handling (Stripe web checkout return)
+    public func handleDeepLink(_ url: URL) {
+        _ = Superwall.handleDeepLink(url)
+    }
+
     // MARK: - Debug: Fetch Paywalls
     /// Fetches and prints Superwall configuration for debugging integration issues
     public func fetchPaywalls() async {
@@ -154,6 +159,13 @@ extension SuperwallManager: SuperwallDelegate {
     public func subscriptionStatusDidChange(from oldValue: SuperwallKit.SubscriptionStatus, to newValue: SuperwallKit.SubscriptionStatus) {
         print("📦 SuperwallManager: subscriptionStatus changed from \(oldValue) to \(newValue)")
 
+        // Stripe web checkout: fire completion when user transitions to active
+        if newValue.isActive && !oldValue.isActive {
+            Task { @MainActor in
+                self.onSubscriptionComplete?()
+            }
+        }
+
         NotificationCenter.default.post(
             name: .superwallSubscriptionStatusDidChange,
             object: nil,
@@ -163,6 +175,14 @@ extension SuperwallManager: SuperwallDelegate {
                 "isActive": newValue.isActive
             ]
         )
+    }
+
+    nonisolated public func willRedeemLink() {
+        print("📦 SuperwallManager: willRedeemLink — Stripe return URL received, verifying...")
+    }
+
+    nonisolated public func didRedeemLink(result: RedemptionResult) {
+        print("📦 SuperwallManager: didRedeemLink — result: \(result)")
     }
 }
 
