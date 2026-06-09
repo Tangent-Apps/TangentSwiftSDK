@@ -179,10 +179,33 @@ extension SuperwallManager: SuperwallDelegate {
 
     nonisolated public func willRedeemLink() {
         print("📦 SuperwallManager: willRedeemLink — Stripe return URL received, verifying...")
+        NotificationCenter.default.post(name: .superwallWillRedeemLink, object: nil)
     }
 
     nonisolated public func didRedeemLink(result: RedemptionResult) {
         print("📦 SuperwallManager: didRedeemLink — result: \(result)")
+
+        var info: [String: Any] = [:]
+        switch result {
+        case .success(let code, _):
+            info["status"] = "success"
+            info["code"] = code
+        case .error(let code, let error):
+            info["status"] = "error"
+            info["code"] = code
+            info["message"] = error.message
+        case .expiredCode(let code, _):
+            info["status"] = "expiredCode"
+            info["code"] = code
+        case .invalidCode(let code):
+            info["status"] = "invalidCode"
+            info["code"] = code
+        case .expiredSubscription(let code, _):
+            info["status"] = "expiredSubscription"
+            info["code"] = code
+        }
+
+        NotificationCenter.default.post(name: .superwallDidRedeemLink, object: nil, userInfo: info)
     }
 }
 
@@ -190,4 +213,14 @@ extension SuperwallManager: SuperwallDelegate {
 extension Notification.Name {
     public static let superwallPaywallDismissed = Notification.Name("superwallPaywallDismissed")
     public static let superwallSubscriptionStatusDidChange = Notification.Name("superwallSubscriptionStatusDidChange")
+
+    /// Fired when the Superwall SDK begins redeeming a web-checkout (Stripe) deep link.
+    /// Observe to show a "Redeeming…" progress state.
+    public static let superwallWillRedeemLink = Notification.Name("superwallWillRedeemLink")
+
+    /// Fired when the Superwall SDK finishes a redemption attempt. `userInfo` carries:
+    /// - `status`: one of `success` | `error` | `expiredCode` | `invalidCode` | `expiredSubscription`
+    /// - `code`: the redemption code
+    /// - `message`: present only for `error` status
+    public static let superwallDidRedeemLink = Notification.Name("superwallDidRedeemLink")
 }
