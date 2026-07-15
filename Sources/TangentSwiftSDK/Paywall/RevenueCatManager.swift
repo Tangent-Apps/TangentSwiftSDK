@@ -5,36 +5,36 @@ import StoreKit
 // MARK: - RevenueCat Manager
 @MainActor
 public final class RevenueCatManager: NSObject, ObservableObject {
-    
+
     // MARK: - Singleton
     public static let shared = RevenueCatManager()
-    
+
     // MARK: - Published Properties
     @Published public var isSubscribed: Bool = false
     @Published public var isLoading: Bool = false
     @Published public var offerings: Offerings?
     @Published public var errorMessage: String?
-    
+
     // MARK: - Initialization
     private override init() {}
-    
+
     // MARK: - Configuration
     public func initialize(apiKey: String) {
         Purchases.logLevel = .debug
         Purchases.configure(withAPIKey: apiKey)
-        
+
         // Set delegate for real-time updates
         Purchases.shared.delegate = self
-        
+
         // Check initial subscription status
         Task {
             await checkSubscriptionStatus()
             await fetchOfferings()
         }
-        
+
         print("✅ RevenueCat: Configured successfully")
     }
-    
+
     // MARK: - Check Subscription Status
     public func checkSubscriptionStatus() async {
         do {
@@ -46,7 +46,7 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             print("❌ RevenueCat: Error checking subscription status - \(error)")
         }
     }
-    
+
     // MARK: - Fetch Offerings
     public func fetchOfferings() async {
         isLoading = true
@@ -60,43 +60,57 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             self.errorMessage = error.localizedDescription
         }
     }
-    
+
     // MARK: - Purchase Product
     public func purchase(package: Package) async -> Bool {
         isLoading = true
         errorMessage = nil
-        
+
         // Track purchase attempt
         MixpanelManager.shared.track(event: .purchaseStarted, properties: [
             "source": "revenuecat_manager",
             "product_id": package.storeProduct.productIdentifier,
             "package_type": package.packageType.debugDescription
         ])
-        
+
         do {
             let result = try await Purchases.shared.purchase(package: package)
-            
+
             // Check if purchase was successful (not cancelled)
             if !result.userCancelled {
                 // Update subscription status
                 self.isSubscribed = result.customerInfo.entitlements["Pro"]?.isActive == true ||
                                    !result.customerInfo.activeSubscriptions.isEmpty
-                
+
+                // Check if this is a trial
+                let isTrial = self.checkIfTrial(customerInfo: result.customerInfo)
+
+                // Track trial started if applicable
+                if isTrial {
+                    MixpanelManager.shared.trackCustomEvent("trial_started", properties: [
+                        "source": "revenuecat_manager",
+                        "product_id": package.storeProduct.productIdentifier,
+                        "package_type": package.packageType.debugDescription
+                    ])
+                    print("🎉 RevenueCat: Trial started for product: \(package.storeProduct.productIdentifier)")
+                }
+
                 // Track successful purchase
                 MixpanelManager.shared.track(event: .purchaseCompleted, properties: [
                     "source": "revenuecat_manager",
                     "product_id": package.storeProduct.productIdentifier,
-                    "package_type": package.packageType.debugDescription
+                    "package_type": package.packageType.debugDescription,
+                    "is_trial": isTrial
                 ])
-                
+
                 // Track revenue
                 let price = package.storeProduct.price as NSDecimalNumber
                 MixpanelManager.shared.trackRevenue(
                     amount: price.doubleValue,
                     productId: package.storeProduct.productIdentifier
                 )
-                
-                
+
+
                 print("✅ RevenueCat: Purchase successful")
                 isLoading = false
                 return true
@@ -108,11 +122,11 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                     "reason": "user_cancelled"
                 ])
             }
-            
+
         } catch {
             print("❌ RevenueCat: Purchase error: \(error)")
             self.errorMessage = error.localizedDescription
-            
+
             // Track purchase error
             MixpanelManager.shared.track(event: .purchaseFailed, properties: [
                 "source": "revenuecat_manager",
@@ -120,16 +134,16 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                 "error_description": error.localizedDescription
             ])
         }
-        
+
         isLoading = false
         return false
     }
-    
+
     // MARK: - Purchase by Product ID (Convenience Method)
     public func purchase(productId: String) async -> Bool {
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let products: [StoreProduct] = await Purchases.shared.products([productId])
             guard let product = products.first else {
@@ -138,47 +152,66 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                 isLoading = false
                 return false
             }
-            
+
             let result = try await Purchases.shared.purchase(product: product)
-            
+
             // Check if purchase was successful (not cancelled)
             if !result.userCancelled {
                 // Update subscription status
                 self.isSubscribed = result.customerInfo.entitlements["pro"]?.isActive == true ||
                                    !result.customerInfo.activeSubscriptions.isEmpty
-                
+
+                // Check if this is a trial
+                let isTrial = self.checkIfTrial(customerInfo: result.customerInfo)
+
+                // Track trial started if applicable
+                if isTrial {
+                    MixpanelManager.shared.trackCustomEvent("trial_started", properties: [
+                        "source": "revenuecat_manager",
+                        "product_id": productId
+                    ])
+                    print("🎉 RevenueCat: Trial started for product: \(productId)")
+                }
+
+                // Track successful purchase
+                MixpanelManager.shared.track(event: .purchaseCompleted, properties: [
+                    "source": "revenuecat_manager",
+                    "product_id": productId,
+                    "is_trial": isTrial
+                ])
+
                 print("✅ RevenueCat: Purchase successful for product: \(productId)")
                 isLoading = false
                 return true
             }
-            
+
         } catch {
             print("❌ RevenueCat: Purchase error for \(productId): \(error)")
             self.errorMessage = error.localizedDescription
         }
-        
+
         isLoading = false
         return false
     }
-    
+
     // MARK: - Restore Purchases
     public func restorePurchases() async -> Bool {
         isLoading = true
         errorMessage = nil
-        
+
         // Track restore attempt
         MixpanelManager.shared.track(event: .purchaseRestored, properties: [
             "source": "revenuecat_manager",
             "action": "restore_attempt"
         ])
-        
+
         do {
             let customerInfo = try await Purchases.shared.restorePurchases()
-            
+
             // Update subscription status
             self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
                                !customerInfo.activeSubscriptions.isEmpty
-            
+
             // Track successful restoration
             MixpanelManager.shared.track(event: .purchaseRestored, properties: [
                 "source": "revenuecat_manager",
@@ -194,7 +227,7 @@ public final class RevenueCatManager: NSObject, ObservableObject {
                     "active_subscriptions": Array(customerInfo.activeSubscriptions)
                 ])
             }
-            
+
             print("✅ RevenueCat: Restore successful")
             isLoading = false
             return isSubscribed
@@ -202,19 +235,19 @@ public final class RevenueCatManager: NSObject, ObservableObject {
         } catch {
             print("❌ RevenueCat: Restore error: \(error)")
             self.errorMessage = error.localizedDescription
-            
+
             // Track restoration failure
             MixpanelManager.shared.track(event: .purchaseFailed, properties: [
                 "source": "revenuecat_manager",
                 "action": "restore_purchases",
                 "error_description": error.localizedDescription
             ])
-            
+
             isLoading = false
             return false
         }
     }
-    
+
     // MARK: - User Management
     public func identify(userId: String) {
         Purchases.shared.logIn(userId) { customerInfo, created, error in
@@ -230,10 +263,10 @@ public final class RevenueCatManager: NSObject, ObservableObject {
             }
         }
     }
-    
-    
+
+
     // MARK: - Helper Methods
-    
+
     /// Get localized price string for a product
     public func getPriceString(for productId: String) -> String? {
         // Try to get from offerings first (faster if available)
@@ -244,12 +277,12 @@ public final class RevenueCatManager: NSObject, ObservableObject {
            }) {
             return package.localizedPriceString
         }
-        
+
         // If offerings not available, fetch product directly (this will be async in real usage)
         // For now, return nil and let UI use fallback pricing
         return nil
     }
-    
+
     /// Get localized price string for a product (async version)
     public func getPriceStringAsync(for productId: String) async -> String? {
         let products: [StoreProduct] = await Purchases.shared.products([productId])
@@ -258,18 +291,51 @@ public final class RevenueCatManager: NSObject, ObservableObject {
         }
         return product.localizedPriceString
     }
-    
+
     /// Get product directly by ID
     public func getProduct(for productId: String) async -> StoreProduct? {
         let products: [StoreProduct] = await Purchases.shared.products([productId])
         return products.first
     }
-    
+
     /// Check if user has specific entitlement
     public func hasEntitlement(_ entitlementId: String) async -> Bool {
         do {
             let customerInfo = try await Purchases.shared.customerInfo()
             return customerInfo.entitlements[entitlementId]?.isActive == true
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - Trial Detection
+
+    /// Check if the current subscription is in a trial period
+    public func checkIfTrial(customerInfo: CustomerInfo) -> Bool {
+        // Check all active entitlements for trial period
+        for (_, entitlement) in customerInfo.entitlements.active {
+            if entitlement.periodType == .trial {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Get trial info for active subscription
+    public func getTrialInfo(customerInfo: CustomerInfo) -> (isTrial: Bool, expirationDate: Date?) {
+        for (_, entitlement) in customerInfo.entitlements.active {
+            if entitlement.periodType == .trial {
+                return (true, entitlement.expirationDate)
+            }
+        }
+        return (false, nil)
+    }
+
+    /// Check if current user is in trial (async)
+    public func isCurrentlyInTrial() async -> Bool {
+        do {
+            let customerInfo = try await Purchases.shared.customerInfo()
+            return checkIfTrial(customerInfo: customerInfo)
         } catch {
             return false
         }
@@ -281,11 +347,11 @@ extension RevenueCatManager: PurchasesDelegate {
     nonisolated public func purchases(_ purchases: Purchases, receivedUpdated customerInfo: CustomerInfo) {
         Task { @MainActor in
             let wasSubscribed = self.isSubscribed
-            
+
             // Update subscription status when customer info changes
             self.isSubscribed = customerInfo.entitlements["Pro"]?.isActive == true ||
                                !customerInfo.activeSubscriptions.isEmpty
-            
+
             // Track subscription status changes
             if !wasSubscribed && self.isSubscribed {
                 // User just became subscribed
@@ -302,7 +368,7 @@ extension RevenueCatManager: PurchasesDelegate {
                     "trigger": "customer_info_updated"
                 ])
             }
-            
+
             // Track general customer info updates
             MixpanelManager.shared.track(event: .featureUsed, properties: [
                 "feature": "customer_info_updated",
