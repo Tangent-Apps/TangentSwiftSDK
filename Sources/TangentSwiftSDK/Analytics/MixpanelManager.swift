@@ -81,6 +81,18 @@ public final class MixpanelManager: NSObject {
         print("⏱ Mixpanel: Started timing '\(event.rawValue)'")
     }
     
+    /// People charge only — no `Purchase Completed` event side-effect.
+    /// Use this when the caller is already firing a richer Purchase Completed
+    /// event themselves (e.g. PurchaseAttributionForwarder) and just needs
+    /// the Mixpanel People profile revenue update.
+    public func trackPeopleCharge(amount: Double, properties: [String: MixpanelType] = [:]) {
+        guard amount > 0 else { return }
+        mixpanel?.people.trackCharge(amount: amount, properties: properties)
+        #if DEBUG
+        print("💰 Mixpanel: People charge \(amount)")
+        #endif
+    }
+
     // MARK: - Revenue Tracking
     public func trackRevenue(amount: Double, productId: String, transactionId: String? = nil) {
         var properties: [String: MixpanelType] = [

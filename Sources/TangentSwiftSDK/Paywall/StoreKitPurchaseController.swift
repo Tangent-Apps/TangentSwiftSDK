@@ -34,6 +34,12 @@ enum StoreKitPurchaseError: LocalizedError {
 
 @MainActor
 final class StoreKitPurchaseController: PurchaseController {
+    /// Optional appAccountToken attached to every Superwall-driven purchase.
+    /// Apps set this (via SuperwallManager.appAccountToken) so App Store
+    /// Server Notifications can attribute purchases to a user server-side.
+    /// nonisolated(unsafe): written once at app startup before any purchase.
+    nonisolated(unsafe) static var appAccountToken: UUID?
+
 
     private var syncTask: Task<Void, Never>?
 
@@ -139,7 +145,11 @@ final class StoreKitPurchaseController: PurchaseController {
         }
 
         do {
-            let result = try await sk2Product.purchase()
+            var options: Set<StoreKit.Product.PurchaseOption> = []
+            if let token = Self.appAccountToken {
+                options.insert(StoreKit.Product.PurchaseOption.appAccountToken(token))
+            }
+            let result = try await sk2Product.purchase(options: options)
             switch result {
             case .success(let verification):
                 switch verification {

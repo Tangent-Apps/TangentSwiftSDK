@@ -17,12 +17,11 @@ let package = Package(
     ],
     dependencies: [
         // Analytics
-        .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "5.0.0"),
+        .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "6.0.0"),
         .package(url: "https://github.com/adjust/ios_sdk", from: "5.0.0"),
-        
-        // Paywall & Subscriptions
-        .package(url: "https://github.com/RevenueCat/purchases-ios-spm", from: "5.0.0"),
-        .package(url: "https://github.com/superwall/Superwall-iOS", from: "4.0.0"),
+
+        // Paywall
+        .package(url: "https://github.com/superwall/Superwall-iOS", from: "4.15.0"),
     ],
     targets: [
         .target(
@@ -30,7 +29,6 @@ let package = Package(
             dependencies: [
                 .product(name: "Mixpanel", package: "mixpanel-swift"),
                 .product(name: "AdjustSdk", package: "ios_sdk"),
-                .product(name: "RevenueCat", package: "purchases-ios-spm"),
                 .product(name: "SuperwallKit", package: "Superwall-iOS"),
             ]
         ),

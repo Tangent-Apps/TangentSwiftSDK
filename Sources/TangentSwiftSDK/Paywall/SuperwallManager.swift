@@ -1,38 +1,67 @@
 import Foundation
 import SuperwallKit
-import RevenueCat
 
 // MARK: - Superwall Manager
 @MainActor
 public final class SuperwallManager: NSObject, ObservableObject {
-    
+
     // MARK: - Singleton
     public static let shared = SuperwallManager()
-    
+
     // MARK: - Properties
     @Published public private(set) var isInitialized = false
     @Published public var paywallDismissed: Bool = false // Tracks when Superwall paywall is dismissed
-    private let purchaseController = RCPurchaseController()
+    private let purchaseController = StoreKitPurchaseController()
+
+    /// Tracks whether a Superwall paywall is currently open, so we only attribute
+    /// transaction events to Superwall when the purchase was actually initiated from it.
+    private var isSuperwallPaywallOpen = false
 
     // Completion handler called when subscription is successful
     public var onSubscriptionComplete: (() -> Void)?
-    
+
+    /// appAccountToken attached to Superwall-driven StoreKit purchases so
+    /// App Store Server Notifications can attribute them to a user
+    /// server-side. Set once at app startup, before any paywall shows.
+    public var appAccountToken: UUID? {
+        get { StoreKitPurchaseController.appAccountToken }
+        set { StoreKitPurchaseController.appAccountToken = newValue }
+    }
+
     // MARK: - Initialization
     private override init() {
         super.init()
     }
     
     // MARK: - Configuration
-    public func initialize(apiKey: String) {
+    public func initialize(apiKey: String, isSubscribed: Bool = false) {
+        // Idempotency — Superwall.configure must only be called once per process.
+        // SDK init and DIContainer both used to call this; now SDK init owns it
+        // exclusively, but the guard protects against accidental double-init
+        // (e.g. tests, hot-reload).
+        guard !isInitialized else {
+            if isSubscribed {
+                Superwall.shared.subscriptionStatus = .active(Set([Entitlement(id: "Pro")]))
+            }
+            return
+        }
+
         Superwall.configure(
             apiKey: apiKey,
             purchaseController: purchaseController
         )
         Superwall.shared.delegate = self
-        
-        // Start subscription sync
+
+        // Mark subscribed IMMEDIATELY after configure, before any auto-triggers
+        if isSubscribed {
+            Superwall.shared.subscriptionStatus = .active(Set([Entitlement(id: "Pro")]))
+            print("✅ Superwall: User already subscribed — set active before sync")
+        }
+
+        // Start subscription sync (StoreKitPurchaseController listens to
+        // Transaction.updates and Transaction.currentEntitlements)
         purchaseController.syncSubscriptionStatus()
-        
+
         isInitialized = true
         print("✅ Superwall: Configured successfully with API key and purchase controller")
     }
@@ -61,6 +90,22 @@ public final class SuperwallManager: NSObject, ObservableObject {
         print("👤 Superwall: User identified - \(userId)")
     }
     
+    public func setSubscribed() {
+        guard isInitialized else { return }
+        Superwall.shared.subscriptionStatus = .active(Set([Entitlement(id: "Pro")]))
+        print("✅ Superwall: Marked user as subscribed (Pro)")
+    }
+
+    /// Push the NOT-subscribed state to Superwall. Without this, once
+    /// `setSubscribed()` forces `.active` Superwall stays active forever and
+    /// refuses to present gated placements even after the app loses premium
+    /// (e.g. sandbox expiry) — stranding the user with no way to re-subscribe.
+    public func setUnsubscribed() {
+        guard isInitialized else { return }
+        Superwall.shared.subscriptionStatus = .inactive
+        print("🚫 Superwall: Marked user as not subscribed (inactive)")
+    }
+
     public func reset() {
         Superwall.shared.reset()
         print("🔄 Superwall: User reset")
@@ -85,13 +130,15 @@ extension SuperwallManager: SuperwallDelegate {
             switch eventInfo.event {
             case .paywallOpen:
                 print("🚀 Superwall paywall opened")
+                self.isSuperwallPaywallOpen = true
                 TangentSwiftSDK.shared.analytics.track(event: .paywallViewed, properties: [
                     "source": "superwall",
                     "event": eventName
                 ])
-                
+
             case .paywallClose:
                 print("🚀 Superwall paywall closed")
+                self.isSuperwallPaywallOpen = false
 
                 // Notify observers that paywall was dismissed
                 self.paywallDismissed = true
@@ -102,51 +149,68 @@ extension SuperwallManager: SuperwallDelegate {
                     "event": eventName
                 ])
 
-                // Show discount offer with smart logic after paywall is dismissed
+                // Show discount offer with smart logic after paywall is dismissed.
+                // Read entitlement from Superwall's own subscriptionStatus —
+                // StoreKitPurchaseController keeps it synced from
+                // Transaction.updates, so we don't need an external check.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    if !TangentSwiftSDK.shared.paywall.isSubscribed {
+                    let isSubscribed: Bool
+                    if case .active = Superwall.shared.subscriptionStatus {
+                        isSubscribed = true
+                    } else {
+                        isSubscribed = false
+                    }
+                    if !isSubscribed {
                         print("🎟️ Showing discount paywall after Superwall dismissal")
                         self.showDiscountPayWall()
                     }
                 }
-                
+
             case .transactionStart:
+                guard self.isSuperwallPaywallOpen else { break }
                 print("🚀 Superwall transaction started")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseStarted, properties: [
                     "source": "superwall",
                     "event": eventName
                 ])
-                
+
             case .transactionComplete:
+                guard self.isSuperwallPaywallOpen else {
+                    // Still call completion handler for navigation
+                    self.onSubscriptionComplete?()
+                    break
+                }
                 print("✅ Superwall purchase completed")
-                TangentSwiftSDK.shared.analytics.track(event: .purchaseCompleted, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
-                TangentSwiftSDK.shared.analytics.track(event: .subscriptionActivated, properties: [
-                    "source": "superwall",
-                    "event": eventName
-                ])
+                // NOTE: Purchase Completed and Subscription Activated events
+                // are NOT fired here. The app-side PurchaseAttributionForwarder
+                // emits them with full product context (product_id, revenue,
+                // currency, transaction_id) — firing them from this delegate
+                // produced the "product_id: undefined" data-quality bug.
+                // StoreKitPurchaseController posts a notification that the
+                // forwarder observes for explicit hand-off.
 
                 // Call completion handler if set
                 self.onSubscriptionComplete?()
-                
+
             case .transactionFail:
+                guard self.isSuperwallPaywallOpen else { break }
                 print("❌ Superwall transaction failed")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
                     "source": "superwall",
                     "event": eventName
                 ])
-                
+
             case .transactionAbandon:
+                guard self.isSuperwallPaywallOpen else { break }
                 print("🚫 Superwall transaction abandoned")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseFailed, properties: [
                     "source": "superwall",
                     "event": eventName,
                     "reason": "user_cancelled"
                 ])
-                
+
             case .transactionRestore:
+                guard self.isSuperwallPaywallOpen else { break }
                 print("🔄 Superwall purchase restored")
                 TangentSwiftSDK.shared.analytics.track(event: .purchaseRestored, properties: [
                     "source": "superwall",

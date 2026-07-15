@@ -46,6 +46,12 @@ public final class AdjustManager: NSObject, ObservableObject {
         // This delays the first session until ATT dialog is answered (up to 120 seconds)
         config.attConsentWaitingInterval = 120
 
+        // Bump the dedup-ID cache from the 10-item default. Some users buy
+        // multiple coin packs in quick succession; with a 10-item window,
+        // older transaction_ids could roll off and let Superwall's S2S
+        // event re-count as a fresh event. 100 covers all realistic cases.
+        config.eventDeduplicationIdsMaxSize = 100
+
         // Store purchase event token
         self.purchaseEventToken = purchaseEventToken
 
@@ -180,6 +186,52 @@ public final class AdjustManager: NSObject, ObservableObject {
         print("📊 Adjust: Custom event tracked - \(eventName) with \(parameters.count) parameters")
     }
     
+    /// Track a revenue event under a specific Adjust event token. Built for
+    /// the RevenueCat → StoreKit migration: instead of the hardcoded single
+    /// `purchaseEventToken`, every product type maps to its own token
+    /// (`jid2u2` for initial subs, `4iihrx` for coin packs, `ej4ikl` for
+    /// renewals, etc. — defined in PurchaseAttributionForwarder.AdjustToken).
+    /// Each call sets revenue + currency on the ADJEvent so Adjust's revenue
+    /// dashboards remain accurate; product_id and transaction_id come in as
+    /// callback parameters.
+    public func trackRevenueEvent(
+        token: String,
+        productId: String,
+        amount: Double,
+        currency: String = "USD",
+        transactionId: String? = nil,
+        additionalParameters: [String: String] = [:]
+    ) {
+        guard isInitialized else {
+            print("⚠️ Adjust: Not initialized, skipping revenue event: \(token)")
+            return
+        }
+        guard let event = ADJEvent(eventToken: token) else {
+            print("❌ Adjust: Failed to create revenue event with token: \(token)")
+            return
+        }
+
+        if amount > 0 {
+            event.setRevenue(amount, currency: currency)
+        }
+        event.setProductId(productId)
+        event.addCallbackParameter("product_id", value: productId)
+        if let transactionId = transactionId {
+            // Critical for dedup: Adjust matches on `deduplicationId`, NOT on
+            // callback parameters. Superwall's S2S backend sends the same
+            // StoreKit transaction_id as its dedup ID, so Adjust collapses
+            // the two events (client-side + server-side) into one.
+            event.setDeduplicationId(transactionId)
+            event.addCallbackParameter("transaction_id", value: transactionId)
+        }
+        for (key, value) in additionalParameters {
+            event.addCallbackParameter(key, value: value)
+        }
+
+        Adjust.trackEvent(event)
+        print("💰 Adjust: Revenue event \(token) tracked — \(amount) \(currency) for \(productId), dedup=\(transactionId ?? "none")")
+    }
+
     /// Track event with specific token
     public func trackEvent(_ eventToken: String, parameters: [String: String] = [:]) {
         guard isInitialized else {
