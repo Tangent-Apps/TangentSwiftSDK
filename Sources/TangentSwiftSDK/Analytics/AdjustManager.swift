@@ -20,6 +20,12 @@ public final class AdjustManager: NSObject, ObservableObject {
         appToken: String,
         environment: String = "production",
         purchaseEventToken: String,
+        // Seconds Adjust delays its FIRST session (and thus the ADID mint) while
+        // waiting for the ATT answer. Low value = ADID resolves fast on cold
+        // installs regardless of when ATT is shown; purchase attribution no
+        // longer blocks on a post-paywall ATT prompt. IDFA is still captured
+        // later for users who consent — ADID attribution never needed IDFA.
+        attConsentWaitingInterval: UInt = 2,
         didGetADID: @escaping (String) -> Void
     ) {
         let cleanToken = appToken.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -35,7 +41,7 @@ public final class AdjustManager: NSObject, ObservableObject {
 
         config.logLevel = ADJLogLevel.verbose
         config.delegate = self
-        config.attConsentWaitingInterval = 120
+        config.attConsentWaitingInterval = attConsentWaitingInterval
         self.purchaseEventToken = purchaseEventToken
         self.onADIDAvailable = didGetADID
 

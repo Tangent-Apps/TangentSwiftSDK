@@ -17,6 +17,11 @@ public final class TangentSwiftSDK {
         let firebaseConfigPath: String?
         let enableATT: Bool
         let attConfiguration: ATTConfiguration?
+        /// Seconds Adjust waits for the ATT answer before sending its first
+        /// session / minting the ADID. Default 2 so purchase attribution never
+        /// blocks on a post-paywall ATT prompt. Raise only if you show ATT
+        /// before the paywall AND need IDFA in the first session.
+        let adjustAttConsentWaitingInterval: UInt
 
         public init(
             mixpanelToken: String? = nil,
@@ -25,7 +30,8 @@ public final class TangentSwiftSDK {
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
-            attConfiguration: ATTConfiguration? = nil
+            attConfiguration: ATTConfiguration? = nil,
+            adjustAttConsentWaitingInterval: UInt = 2
         ) {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
@@ -34,6 +40,7 @@ public final class TangentSwiftSDK {
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
             self.attConfiguration = attConfiguration
+            self.adjustAttConsentWaitingInterval = adjustAttConsentWaitingInterval
         }
     }
     
@@ -114,6 +121,7 @@ public final class TangentSwiftSDK {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
                 purchaseEventToken: purchaseEventToken,
+                attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
                 didGetADID: { adid in
                     SuperwallManager.shared.registerAdjustADID(adid: adid)
                 }
