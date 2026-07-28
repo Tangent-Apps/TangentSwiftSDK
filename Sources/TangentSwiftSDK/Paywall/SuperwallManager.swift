@@ -17,6 +17,32 @@ public final class SuperwallManager: NSObject, ObservableObject {
     // Completion handler called when subscription is successful
     public var onSubscriptionComplete: (() -> Void)?
 
+    /// Attribution context for the most recently seen Superwall paywall.
+    ///
+    /// Captured on `.paywallOpen` and upgraded on `.transactionComplete`
+    /// (`didConvert = true`, `productId` set). Consumers firing purchase
+    /// analytics from StoreKit's `Transaction.updates` can read this to
+    /// attribute the purchase to the paywall/placement/experiment that drove
+    /// it — `paywallOpen` always precedes the transaction, so the context is
+    /// in place regardless of delegate-vs-listener ordering.
+    public struct PaywallAttribution {
+        public let paywallId: String
+        public let paywallName: String
+        /// The placement that triggered the paywall (nil when presented programmatically).
+        public let placement: String?
+        /// How the paywall was presented: "programmatically", "identifier", or "placement".
+        public let presentedBy: String
+        public let experimentId: String?
+        public let variantId: String?
+        /// Product purchased on this paywall. Only set once `didConvert` is true.
+        public let productId: String?
+        public let didConvert: Bool
+        public let capturedAt: Date
+    }
+
+    /// The last paywall the user saw (or converted on). See ``PaywallAttribution``.
+    public private(set) var lastPaywallAttribution: PaywallAttribution?
+
     /// Controls whether to show discount paywall after Superwall dismissal
     private var showDiscountPaywallOnDismiss: Bool = false
 
@@ -124,7 +150,8 @@ extension SuperwallManager: SuperwallDelegate {
     nonisolated public func handleSuperwallEvent(withInfo eventInfo: SuperwallEventInfo) {
         Task { @MainActor in
             switch eventInfo.event {
-            case .paywallOpen:
+            case .paywallOpen(let paywallInfo):
+                self.lastPaywallAttribution = Self.attribution(from: paywallInfo, productId: nil, didConvert: false)
                 TangentSwiftSDK.shared.analytics.track(event: .paywallViewed)
 
             case .paywallClose:
@@ -143,7 +170,8 @@ extension SuperwallManager: SuperwallDelegate {
                     }
                 }
 
-            case .transactionComplete:
+            case .transactionComplete(_, let product, _, let paywallInfo):
+                self.lastPaywallAttribution = Self.attribution(from: paywallInfo, productId: product.productIdentifier, didConvert: true)
                 // Call completion handler if set
                 self.onSubscriptionComplete?()
 
@@ -151,6 +179,20 @@ extension SuperwallManager: SuperwallDelegate {
                 break
             }
         }
+    }
+
+    private static func attribution(from paywallInfo: PaywallInfo, productId: String?, didConvert: Bool) -> PaywallAttribution {
+        PaywallAttribution(
+            paywallId: paywallInfo.identifier,
+            paywallName: paywallInfo.name,
+            placement: paywallInfo.presentedByPlacementWithName,
+            presentedBy: paywallInfo.presentedBy,
+            experimentId: paywallInfo.experiment?.id,
+            variantId: paywallInfo.experiment?.variant.id,
+            productId: productId,
+            didConvert: didConvert,
+            capturedAt: Date()
+        )
     }
 
     nonisolated public func handleLog(level: String, scope: String, message: String?, info: [String : Any]?, error: Error?) {
