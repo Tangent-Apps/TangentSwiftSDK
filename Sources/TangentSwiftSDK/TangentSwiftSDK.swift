@@ -13,6 +13,10 @@ public final class TangentSwiftSDK {
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
+        /// Analytics event name → Adjust event token, e.g. `["trial_started": "abc123"]`.
+        /// Adjust only accepts events it has a token for, so `analytics.trackCustomEvent`
+        /// forwards a name to Adjust only if it appears here. Empty = Mixpanel only.
+        let adjustEventTokens: [String: String]
         let superwallAPIKey: String?
         let firebaseConfigPath: String?
         let enableATT: Bool
@@ -27,6 +31,7 @@ public final class TangentSwiftSDK {
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
+            adjustEventTokens: [String: String] = [:],
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
@@ -36,6 +41,7 @@ public final class TangentSwiftSDK {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
+            self.adjustEventTokens = adjustEventTokens
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
@@ -121,6 +127,7 @@ public final class TangentSwiftSDK {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
                 purchaseEventToken: purchaseEventToken,
+                eventTokens: config.adjustEventTokens,
                 attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
                 didGetADID: { adid in
                     SuperwallManager.shared.registerAdjustADID(adid: adid)

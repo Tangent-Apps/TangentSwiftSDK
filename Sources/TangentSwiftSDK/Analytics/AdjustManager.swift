@@ -8,6 +8,8 @@ public final class AdjustManager: NSObject, ObservableObject {
     @Published public private(set) var adid: String?
 
     private var purchaseEventToken: String?
+    /// Analytics event name → Adjust event token, supplied by the app.
+    private var eventTokens: [String: String] = [:]
     private var onADIDAvailable: ((String) -> Void)?
 
     private override init() {
@@ -20,6 +22,9 @@ public final class AdjustManager: NSObject, ObservableObject {
         appToken: String,
         environment: String = "production",
         purchaseEventToken: String,
+        // Analytics event name → Adjust event token. Only names present here reach
+        // Adjust via `trackCustomEvent`; see that method for why.
+        eventTokens: [String: String] = [:],
         // Seconds Adjust delays its FIRST session (and thus the ADID mint) while
         // waiting for the ATT answer. Low value = ADID resolves fast on cold
         // installs regardless of when ATT is shown; purchase attribution no
@@ -43,6 +48,7 @@ public final class AdjustManager: NSObject, ObservableObject {
         config.delegate = self
         config.attConsentWaitingInterval = attConsentWaitingInterval
         self.purchaseEventToken = purchaseEventToken
+        self.eventTokens = eventTokens
         self.onADIDAvailable = didGetADID
 
         Adjust.initSdk(config)
@@ -89,9 +95,25 @@ public final class AdjustManager: NSObject, ObservableObject {
 
     // MARK: - Generic Event Tracking
 
-    /// Track custom event with parameters
+    /// Track custom event with parameters.
+    ///
+    /// Adjust has no concept of an arbitrarily named event — every event must be
+    /// created in Adjust → Events first and is addressed by its token. So a name
+    /// only reaches Adjust if the app mapped it in `Configuration.adjustEventTokens`;
+    /// anything unmapped is dropped rather than sent under an invented token, which
+    /// Adjust's backend would discard anyway. This used to drop *everything*
+    /// silently, including the events `AnalyticsService` fans out here.
     public func trackCustomEvent(_ eventName: String, parameters: [String: String] = [:]) {
         guard isInitialized else { return }
+
+        guard let token = eventTokens[eventName], !token.isEmpty else {
+            #if DEBUG
+            print("ℹ️ Adjust: no event token mapped for '\(eventName)' — not forwarded")
+            #endif
+            return
+        }
+
+        trackEvent(token, parameters: parameters)
     }
 
     /// Track event with specific token
