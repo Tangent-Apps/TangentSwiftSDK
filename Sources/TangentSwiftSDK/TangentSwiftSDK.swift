@@ -13,30 +13,34 @@ public final class TangentSwiftSDK {
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
-        let revenueCatAPIKey: String?
         let superwallAPIKey: String?
         let firebaseConfigPath: String?
         let enableATT: Bool
         let attConfiguration: ATTConfiguration?
+        /// Seconds Adjust waits for the ATT answer before sending its first
+        /// session / minting the ADID. Default 2 so purchase attribution never
+        /// blocks on a post-paywall ATT prompt. Raise only if you show ATT
+        /// before the paywall AND need IDFA in the first session.
+        let adjustAttConsentWaitingInterval: UInt
 
         public init(
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
-            revenueCatAPIKey: String? = nil,
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
-            attConfiguration: ATTConfiguration? = nil
+            attConfiguration: ATTConfiguration? = nil,
+            adjustAttConsentWaitingInterval: UInt = 2
         ) {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
-            self.revenueCatAPIKey = revenueCatAPIKey
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
             self.attConfiguration = attConfiguration
+            self.adjustAttConsentWaitingInterval = adjustAttConsentWaitingInterval
         }
     }
     
@@ -102,6 +106,10 @@ public final class TangentSwiftSDK {
     
     private func setupServices() {
         guard let config = configuration else { return }
+        // Initialize Paywall
+        if let superwallKey = config.superwallAPIKey {
+            SuperwallManager.shared.initialize(apiKey: superwallKey)
+        }
 
         // Initialize Analytics
         if let mixpanelToken = config.mixpanelToken {
@@ -112,17 +120,12 @@ public final class TangentSwiftSDK {
            let purchaseEventToken = config.adjustPurchaseEventToken {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
-                purchaseEventToken: purchaseEventToken
+                purchaseEventToken: purchaseEventToken,
+                attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
+                didGetADID: { adid in
+                    SuperwallManager.shared.registerAdjustADID(adid: adid)
+                }
             )
-        }
-
-        // Initialize Monetization
-        if let revenueCatKey = config.revenueCatAPIKey {
-            RevenueCatManager.shared.initialize(apiKey: revenueCatKey)
-        }
-
-        if let superwallKey = config.superwallAPIKey {
-            SuperwallManager.shared.initialize(apiKey: superwallKey)
         }
 
         // Initialize Tracking (Optional)
@@ -143,16 +146,6 @@ public extension TangentSwiftSDK {
     /// Access to tracking services
     var tracking: TrackingService {
         return TrackingService.shared
-    }
-    
-    /// Access to monetization services
-    var monetization: MonetizationService {
-        return MonetizationService.shared
-    }
-    
-    /// Access to paywall services (RevenueCat)
-    var paywall: RevenueCatManager {
-        return RevenueCatManager.shared
     }
     
     /// Access to superwall services

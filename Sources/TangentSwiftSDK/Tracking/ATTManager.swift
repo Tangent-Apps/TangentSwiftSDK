@@ -113,6 +113,9 @@ public final class ATTManager: ObservableObject {
         // Update Adjust
         AdjustManager.shared.updateTrackingPermission(isAllowed)
 
+        // Refresh Superwall device IDs (IDFA becomes available after consent)
+        SuperwallManager.shared.setDeviceIds()
+
         // Track the permission result
         trackPermissionResult(isAllowed)
     }

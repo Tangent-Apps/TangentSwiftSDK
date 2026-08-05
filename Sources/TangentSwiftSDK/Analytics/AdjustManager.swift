@@ -1,6 +1,5 @@
 import Foundation
 @preconcurrency import AdjustSdk
-import RevenueCat
 
 public final class AdjustManager: NSObject, ObservableObject {
     public static let shared = AdjustManager()
@@ -9,6 +8,7 @@ public final class AdjustManager: NSObject, ObservableObject {
     @Published public private(set) var adid: String?
 
     private var purchaseEventToken: String?
+    private var onADIDAvailable: ((String) -> Void)?
 
     private override init() {
         super.init()
@@ -16,7 +16,18 @@ public final class AdjustManager: NSObject, ObservableObject {
 
     // MARK: - Configuration
 
-    public func initialize(appToken: String, environment: String = "production", purchaseEventToken: String) {
+    public func initialize(
+        appToken: String,
+        environment: String = "production",
+        purchaseEventToken: String,
+        // Seconds Adjust delays its FIRST session (and thus the ADID mint) while
+        // waiting for the ATT answer. Low value = ADID resolves fast on cold
+        // installs regardless of when ATT is shown; purchase attribution no
+        // longer blocks on a post-paywall ATT prompt. IDFA is still captured
+        // later for users who consent — ADID attribution never needed IDFA.
+        attConsentWaitingInterval: UInt = 2,
+        didGetADID: @escaping (String) -> Void
+    ) {
         let cleanToken = appToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let adjustEnvironment = environment == "sandbox" ? ADJEnvironmentSandbox : ADJEnvironmentProduction
 
@@ -30,8 +41,9 @@ public final class AdjustManager: NSObject, ObservableObject {
 
         config.logLevel = ADJLogLevel.verbose
         config.delegate = self
-        config.attConsentWaitingInterval = 120
+        config.attConsentWaitingInterval = attConsentWaitingInterval
         self.purchaseEventToken = purchaseEventToken
+        self.onADIDAvailable = didGetADID
 
         Adjust.initSdk(config)
         isInitialized = true
@@ -42,8 +54,8 @@ public final class AdjustManager: NSObject, ObservableObject {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             if let adid = await Adjust.adid(), self.adid == nil {
                 await MainActor.run { self.adid = adid }
-                Purchases.shared.attribution.setAdjustID(adid)
-                print("✅ Adjust: Set ADID on RevenueCat: \(adid)")
+                print("✅ Adjust: ADID available: \(adid)")
+                didGetADID(adid)
             }
         }
 
@@ -152,8 +164,10 @@ extension AdjustManager: AdjustDelegate {
             Task { @MainActor in
                 if let adid = adid {
                     AdjustManager.shared.adid = adid
-                    Purchases.shared.attribution.setAdjustID(adid)
-                    print("✅ Adjust: Set ADID on RevenueCat: \(adid)")
+                    print("✅ Adjust: ADID available: \(adid)")
+
+                    // Forward ADID to Superwall (and any other registered callbacks)
+                    AdjustManager.shared.onADIDAvailable?(adid)
 
                     NotificationCenter.default.post(
                         name: NSNotification.Name("AdjustADIDAvailable"),
