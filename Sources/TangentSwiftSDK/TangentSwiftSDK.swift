@@ -8,11 +8,24 @@ public final class TangentSwiftSDK {
     // MARK: - Singleton
     public static let shared = TangentSwiftSDK()
     
+    /// Which Adjust environment the SDK reports into.
+    ///
+    /// `.sandbox` is what makes a device show up in Adjust's Testing Console, so it is
+    /// the only way to watch events land in the dashboard while developing. Sandbox
+    /// traffic is kept out of production reporting and is **not** forwarded to
+    /// partners — so it proves the app → Adjust hop, never the Adjust → Meta one.
+    public enum AdjustEnvironment: String {
+        case production
+        case sandbox
+    }
+
     // MARK: - Configuration
     public struct Configuration {
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
+        /// Defaults to `.production`, so apps that don't set it are unaffected.
+        let adjustEnvironment: AdjustEnvironment
         /// Analytics event name → Adjust event token, e.g. `["trial_started": "abc123"]`.
         /// Adjust only accepts events it has a token for, so `analytics.trackCustomEvent`
         /// forwards a name to Adjust only if it appears here. Empty = Mixpanel only.
@@ -31,6 +44,7 @@ public final class TangentSwiftSDK {
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
+            adjustEnvironment: AdjustEnvironment = .production,
             adjustEventTokens: [String: String] = [:],
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
@@ -41,6 +55,7 @@ public final class TangentSwiftSDK {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
+            self.adjustEnvironment = adjustEnvironment
             self.adjustEventTokens = adjustEventTokens
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
@@ -126,6 +141,7 @@ public final class TangentSwiftSDK {
            let purchaseEventToken = config.adjustPurchaseEventToken {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
+                environment: config.adjustEnvironment.rawValue,
                 purchaseEventToken: purchaseEventToken,
                 eventTokens: config.adjustEventTokens,
                 attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
