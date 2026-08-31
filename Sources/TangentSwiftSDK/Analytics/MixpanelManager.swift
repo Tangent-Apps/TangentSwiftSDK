@@ -18,15 +18,30 @@ public final class MixpanelManager: NSObject {
     }
     
     // MARK: - Configuration
-    public func initialize(token: String) {
-        Mixpanel.initialize(token: token, trackAutomaticEvents: true)
+
+    /// - Parameter serverURL: The Mixpanel ingestion cluster. **Required for
+    ///   projects created in a non-US data-residency region** — an EU project
+    ///   needs `https://api-eu.mixpanel.com`, and India `https://api-in.mixpanel.com`.
+    ///
+    ///   ⚠️ **Getting this wrong fails SILENTLY.** The SDK accepts the events,
+    ///   reports no error and returns success; they are simply posted to the US
+    ///   cluster, where the token does not exist, and never appear in the
+    ///   project. It looks exactly like tracking that was never wired up. Left
+    ///   nil the SDK keeps its own default (US), so existing callers are
+    ///   unaffected.
+    public func initialize(token: String, serverURL: String? = nil) {
+        Mixpanel.initialize(
+            token: token,
+            trackAutomaticEvents: true,
+            serverURL: serverURL
+        )
         mixpanel = Mixpanel.mainInstance()
-        
+
         #if DEBUG
         mixpanel?.loggingEnabled = true
         #endif
-        
-        print("✅ Mixpanel: Configured successfully")
+
+        print("✅ Mixpanel: Configured successfully — cluster \(serverURL ?? "default (US)")")
     }
     
     // MARK: - User Identification

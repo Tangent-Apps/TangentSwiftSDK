@@ -194,13 +194,26 @@ public final class AdjustManager: NSObject, ObservableObject {
     /// Each call sets revenue + currency on the ADJEvent so Adjust's revenue
     /// dashboards remain accurate; product_id and transaction_id come in as
     /// callback parameters.
+    /// - Parameter allowsNegativeRevenue: pass `true` to report a NEGATIVE amount
+    ///   (a refund or chargeback) as negative revenue. Adjust accepts it and
+    ///   subtracts it from the totals.
+    ///
+    ///   ⚠️ **Defaults to `false`, which preserves the old behaviour of silently
+    ///   dropping it** — this is a shared package and flipping the default would
+    ///   change every app that builds against it. The old guard was `amount > 0`,
+    ///   which conflated "nothing to report" (0) with "money going the other way"
+    ///   (< 0), so a caller could compute `-price` for a refund, hand it over, and
+    ///   have it discarded with nothing failing. The visible symptom is a revenue
+    ///   figure that can only ever go UP: refunds fire their event, carry no
+    ///   amount, and never come back out of the total.
     public func trackRevenueEvent(
         token: String,
         productId: String,
         amount: Double,
         currency: String = "USD",
         transactionId: String? = nil,
-        additionalParameters: [String: String] = [:]
+        additionalParameters: [String: String] = [:],
+        allowsNegativeRevenue: Bool = false
     ) {
         guard isInitialized else {
             print("⚠️ Adjust: Not initialized, skipping revenue event: \(token)")
@@ -211,7 +224,7 @@ public final class AdjustManager: NSObject, ObservableObject {
             return
         }
 
-        if amount > 0 {
+        if amount > 0 || (allowsNegativeRevenue && amount < 0) {
             event.setRevenue(amount, currency: currency)
         }
         event.setProductId(productId)

@@ -11,6 +11,12 @@ public final class TangentSwiftSDK {
     // MARK: - Configuration
     public struct Configuration {
         let mixpanelToken: String?
+        /// Mixpanel ingestion cluster, for projects in a non-US data-residency
+        /// region — `https://api-eu.mixpanel.com` for EU. Nil keeps the SDK
+        /// default (US). ⚠️ A mismatch here fails silently: events are accepted
+        /// and posted to a cluster where the token does not exist, so they never
+        /// arrive and it looks like tracking was never wired up.
+        let mixpanelServerURL: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
         let adjustEnvironment: String
@@ -21,6 +27,9 @@ public final class TangentSwiftSDK {
 
         public init(
             mixpanelToken: String? = nil,
+            // Defaulted and placed after the token so existing call sites — which
+            // pass every argument by label — keep compiling untouched.
+            mixpanelServerURL: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
             adjustEnvironment: String = "production",
@@ -30,6 +39,7 @@ public final class TangentSwiftSDK {
             attConfiguration: ATTConfiguration? = nil
         ) {
             self.mixpanelToken = mixpanelToken
+            self.mixpanelServerURL = mixpanelServerURL
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
             self.adjustEnvironment = adjustEnvironment
@@ -108,7 +118,10 @@ public final class TangentSwiftSDK {
 
         // Initialize Analytics
         if let mixpanelToken = config.mixpanelToken {
-            MixpanelManager.shared.initialize(token: mixpanelToken)
+            MixpanelManager.shared.initialize(
+                token: mixpanelToken,
+                serverURL: config.mixpanelServerURL
+            )
         }
 
         if let adjustToken = config.adjustAppToken,

@@ -72,6 +72,41 @@ public final class SuperwallManager: NSObject, ObservableObject {
         print("📱 Superwall: Registered event - \(event)")
     }
     
+    /// Register a placement and report back what Superwall actually DID with it.
+    ///
+    /// ⚠️ **`register(event:params:)` above is fire-and-forget, and silence from
+    /// it is ambiguous in the worst way.** A campaign that is paused, filtered out
+    /// by an audience rule, held out for an experiment, or simply not configured
+    /// produces exactly the same nothing as a campaign that is about to present —
+    /// so an app waiting on a paywall cannot tell "any moment now" from "never",
+    /// and shows a spinner forever. Superwall knows the difference and will say so
+    /// if asked; this is the asking.
+    ///
+    /// Additive: the existing `register` is untouched, so Poly.ai is unchanged.
+    public func registerWithHandler(
+        event: String,
+        params: [String: Any] = [:],
+        onPresent: (() -> Void)? = nil,
+        onSkip: ((String) -> Void)? = nil,
+        onError: ((String) -> Void)? = nil
+    ) {
+        let handler = PaywallPresentationHandler()
+        handler.onPresent { info in
+            print("📱 Superwall: PRESENTED \(event) — \(info.identifier)")
+            Task { @MainActor in onPresent?() }
+        }
+        handler.onSkip { reason in
+            print("⚠️ Superwall: SKIPPED \(event) — \(reason.description)")
+            Task { @MainActor in onSkip?(reason.description) }
+        }
+        handler.onError { error in
+            print("❌ Superwall: ERROR \(event) — \(error.localizedDescription)")
+            Task { @MainActor in onError?(error.localizedDescription) }
+        }
+        Superwall.shared.register(placement: event, params: params, handler: handler)
+        print("📱 Superwall: Registered event - \(event) (with handler)")
+    }
+
     public func showPaywall() {
         Superwall.shared.register(placement: "campaign_trigger")
     }
