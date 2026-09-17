@@ -39,6 +39,12 @@ public final class TangentSwiftSDK {
         /// blocks on a post-paywall ATT prompt. Raise only if you show ATT
         /// before the paywall AND need IDFA in the first session.
         let adjustAttConsentWaitingInterval: UInt
+        /// Whether the SDK identifies Superwall with the IDFV at init. Defaults to
+        /// `true`, so apps that don't set it are unaffected. Set `false` in any app
+        /// that calls `superwall.identify(userId:)` itself — see
+        /// ``SuperwallManager/initialize(apiKey:identifyWithVendorId:)`` for what the
+        /// double identify costs.
+        let superwallIdentifiesWithVendorId: Bool
 
         public init(
             mixpanelToken: String? = nil,
@@ -50,7 +56,8 @@ public final class TangentSwiftSDK {
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
             attConfiguration: ATTConfiguration? = nil,
-            adjustAttConsentWaitingInterval: UInt = 2
+            adjustAttConsentWaitingInterval: UInt = 2,
+            superwallIdentifiesWithVendorId: Bool = true
         ) {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
@@ -62,6 +69,7 @@ public final class TangentSwiftSDK {
             self.enableATT = enableATT
             self.attConfiguration = attConfiguration
             self.adjustAttConsentWaitingInterval = adjustAttConsentWaitingInterval
+            self.superwallIdentifiesWithVendorId = superwallIdentifiesWithVendorId
         }
     }
     
@@ -129,7 +137,10 @@ public final class TangentSwiftSDK {
         guard let config = configuration else { return }
         // Initialize Paywall
         if let superwallKey = config.superwallAPIKey {
-            SuperwallManager.shared.initialize(apiKey: superwallKey)
+            SuperwallManager.shared.initialize(
+                apiKey: superwallKey,
+                identifyWithVendorId: config.superwallIdentifiesWithVendorId
+            )
         }
 
         // Initialize Analytics

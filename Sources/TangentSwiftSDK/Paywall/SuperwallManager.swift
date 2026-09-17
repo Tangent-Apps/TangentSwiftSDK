@@ -52,12 +52,29 @@ public final class SuperwallManager: NSObject, ObservableObject {
     }
 
     // MARK: - Configuration
-    public func initialize(apiKey: String) {
+
+    /// - Parameter identifyWithVendorId: whether to identify Superwall with the IDFV
+    ///   here. Defaults to `true`, which is the long-standing behaviour.
+    ///
+    ///   Pass `false` from any app that publishes its own identity. Identifying twice
+    ///   with two different ids makes Superwall discard the first user and mint a
+    ///   second — it emits `reset` + `first_seen` + `identity_alias` every launch —
+    ///   which silently breaks anything scoped to a user: per-user campaign frequency
+    ///   caps stop holding, A/B variant assignment can move mid-session, and the user
+    ///   counts stop being people. Measured in GirlWalk on 2026-09-16: 45,013
+    ///   `first_seen` events from 4,495 app launches, roughly ten identities per
+    ///   launch, and a purchase whose start and completion landed on two different
+    ///   ids 199ms apart.
+    ///
+    ///   With `false` the app is responsible for calling ``identify(userId:)`` itself;
+    ///   until it does, Superwall uses its own anonymous per-install alias.
+    public func initialize(apiKey: String, identifyWithVendorId: Bool = true) {
         Superwall.configure(apiKey: apiKey)
         Superwall.shared.delegate = self
 
         isInitialized = true
-        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+        if identifyWithVendorId,
+           let vendorId = UIDevice.current.identifierForVendor?.uuidString {
             Superwall.shared.identify(userId: vendorId)
         }
         setDeviceIds()
