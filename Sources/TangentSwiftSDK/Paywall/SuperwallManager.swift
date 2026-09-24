@@ -120,6 +120,18 @@ public final class SuperwallManager: NSObject, ObservableObject {
         print("👤 Superwall: User attributes set")
     }
     
+    /// Hands Superwall this device's Adjust ID, so Superwall's server-side
+    /// Adjust integration can attribute the events it sends (renewals, refunds)
+    /// to the right install. Additive: nothing calls it unless an app opts in.
+    /// Returns false when Superwall is not configured yet — nothing was set.
+    @discardableResult
+    public func setAdjustId(_ adid: String?) -> Bool {
+        guard isInitialized else { return false }
+        Superwall.shared.setIntegrationAttribute(.adjustId, adid)
+        print("🔗 Superwall: Adjust ID \(adid == nil ? "cleared" : "set")")
+        return true
+    }
+
     public func identify(userId: String) {
         Superwall.shared.identify(userId: userId)
         print("👤 Superwall: User identified - \(userId)")
