@@ -17,11 +17,11 @@ let package = Package(
     ],
     dependencies: [
         // Analytics
-        .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "5.0.0"),
-        .package(url: "https://github.com/adjust/ios_sdk", from: "5.0.0"),
+        .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "5.2.0"),
+        .package(url: "https://github.com/adjust/ios_sdk", from: "5.8.0"),
         
         // Paywall & Subscriptions
-        .package(url: "https://github.com/superwall/Superwall-iOS", from: "4.0.0"),
+        .package(url: "https://github.com/superwall/Superwall-iOS", from: "4.17.0"),
     ],
     targets: [
         .target(
