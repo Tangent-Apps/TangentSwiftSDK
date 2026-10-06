@@ -8,32 +8,68 @@ public final class TangentSwiftSDK {
     // MARK: - Singleton
     public static let shared = TangentSwiftSDK()
     
+    /// Which Adjust environment the SDK reports into.
+    ///
+    /// `.sandbox` is what makes a device show up in Adjust's Testing Console, so it is
+    /// the only way to watch events land in the dashboard while developing. Sandbox
+    /// traffic is kept out of production reporting and is **not** forwarded to
+    /// partners — so it proves the app → Adjust hop, never the Adjust → Meta one.
+    public enum AdjustEnvironment: String {
+        case production
+        case sandbox
+    }
+
     // MARK: - Configuration
     public struct Configuration {
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
+        /// Defaults to `.production`, so apps that don't set it are unaffected.
+        let adjustEnvironment: AdjustEnvironment
+        /// Analytics event name → Adjust event token, e.g. `["trial_started": "abc123"]`.
+        /// Adjust only accepts events it has a token for, so `analytics.trackCustomEvent`
+        /// forwards a name to Adjust only if it appears here. Empty = Mixpanel only.
+        let adjustEventTokens: [String: String]
         let superwallAPIKey: String?
         let firebaseConfigPath: String?
         let enableATT: Bool
         let attConfiguration: ATTConfiguration?
+        /// Seconds Adjust waits for the ATT answer before sending its first
+        /// session / minting the ADID. Default 2 so purchase attribution never
+        /// blocks on a post-paywall ATT prompt. Raise only if you show ATT
+        /// before the paywall AND need IDFA in the first session.
+        let adjustAttConsentWaitingInterval: UInt
+        /// Whether the SDK identifies Superwall with the IDFV at init. Defaults to
+        /// `true`, so apps that don't set it are unaffected. Set `false` in any app
+        /// that calls `superwall.identify(userId:)` itself — see
+        /// ``SuperwallManager/initialize(apiKey:identifyWithVendorId:)`` for what the
+        /// double identify costs.
+        let superwallIdentifiesWithVendorId: Bool
 
         public init(
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
+            adjustEnvironment: AdjustEnvironment = .production,
+            adjustEventTokens: [String: String] = [:],
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
-            attConfiguration: ATTConfiguration? = nil
+            attConfiguration: ATTConfiguration? = nil,
+            adjustAttConsentWaitingInterval: UInt = 2,
+            superwallIdentifiesWithVendorId: Bool = true
         ) {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
+            self.adjustEnvironment = adjustEnvironment
+            self.adjustEventTokens = adjustEventTokens
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
             self.attConfiguration = attConfiguration
+            self.adjustAttConsentWaitingInterval = adjustAttConsentWaitingInterval
+            self.superwallIdentifiesWithVendorId = superwallIdentifiesWithVendorId
         }
     }
     
@@ -101,7 +137,10 @@ public final class TangentSwiftSDK {
         guard let config = configuration else { return }
         // Initialize Paywall
         if let superwallKey = config.superwallAPIKey {
-            SuperwallManager.shared.initialize(apiKey: superwallKey)
+            SuperwallManager.shared.initialize(
+                apiKey: superwallKey,
+                identifyWithVendorId: config.superwallIdentifiesWithVendorId
+            )
         }
 
         // Initialize Analytics
@@ -113,7 +152,10 @@ public final class TangentSwiftSDK {
            let purchaseEventToken = config.adjustPurchaseEventToken {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
+                environment: config.adjustEnvironment.rawValue,
                 purchaseEventToken: purchaseEventToken,
+                eventTokens: config.adjustEventTokens,
+                attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
                 didGetADID: { adid in
                     SuperwallManager.shared.registerAdjustADID(adid: adid)
                 }

@@ -17,6 +17,32 @@ public final class SuperwallManager: NSObject, ObservableObject {
     // Completion handler called when subscription is successful
     public var onSubscriptionComplete: (() -> Void)?
 
+    /// Attribution context for the most recently seen Superwall paywall.
+    ///
+    /// Captured on `.paywallOpen` and upgraded on `.transactionComplete`
+    /// (`didConvert = true`, `productId` set). Consumers firing purchase
+    /// analytics from StoreKit's `Transaction.updates` can read this to
+    /// attribute the purchase to the paywall/placement/experiment that drove
+    /// it — `paywallOpen` always precedes the transaction, so the context is
+    /// in place regardless of delegate-vs-listener ordering.
+    public struct PaywallAttribution {
+        public let paywallId: String
+        public let paywallName: String
+        /// The placement that triggered the paywall (nil when presented programmatically).
+        public let placement: String?
+        /// How the paywall was presented: "programmatically", "identifier", or "placement".
+        public let presentedBy: String
+        public let experimentId: String?
+        public let variantId: String?
+        /// Product purchased on this paywall. Only set once `didConvert` is true.
+        public let productId: String?
+        public let didConvert: Bool
+        public let capturedAt: Date
+    }
+
+    /// The last paywall the user saw (or converted on). See ``PaywallAttribution``.
+    public private(set) var lastPaywallAttribution: PaywallAttribution?
+
     /// Controls whether to show discount paywall after Superwall dismissal
     private var showDiscountPaywallOnDismiss: Bool = false
 
@@ -26,12 +52,29 @@ public final class SuperwallManager: NSObject, ObservableObject {
     }
 
     // MARK: - Configuration
-    public func initialize(apiKey: String) {
+
+    /// - Parameter identifyWithVendorId: whether to identify Superwall with the IDFV
+    ///   here. Defaults to `true`, which is the long-standing behaviour.
+    ///
+    ///   Pass `false` from any app that publishes its own identity. Identifying twice
+    ///   with two different ids makes Superwall discard the first user and mint a
+    ///   second — it emits `reset` + `first_seen` + `identity_alias` every launch —
+    ///   which silently breaks anything scoped to a user: per-user campaign frequency
+    ///   caps stop holding, A/B variant assignment can move mid-session, and the user
+    ///   counts stop being people. Measured in GirlWalk on 2026-09-16: 45,013
+    ///   `first_seen` events from 4,495 app launches, roughly ten identities per
+    ///   launch, and a purchase whose start and completion landed on two different
+    ///   ids 199ms apart.
+    ///
+    ///   With `false` the app is responsible for calling ``identify(userId:)`` itself;
+    ///   until it does, Superwall uses its own anonymous per-install alias.
+    public func initialize(apiKey: String, identifyWithVendorId: Bool = true) {
         Superwall.configure(apiKey: apiKey)
         Superwall.shared.delegate = self
 
         isInitialized = true
-        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+        if identifyWithVendorId,
+           let vendorId = UIDevice.current.identifierForVendor?.uuidString {
             Superwall.shared.identify(userId: vendorId)
         }
         setDeviceIds()
@@ -124,7 +167,8 @@ extension SuperwallManager: SuperwallDelegate {
     nonisolated public func handleSuperwallEvent(withInfo eventInfo: SuperwallEventInfo) {
         Task { @MainActor in
             switch eventInfo.event {
-            case .paywallOpen:
+            case .paywallOpen(let paywallInfo):
+                self.lastPaywallAttribution = Self.attribution(from: paywallInfo, productId: nil, didConvert: false)
                 TangentSwiftSDK.shared.analytics.track(event: .paywallViewed)
 
             case .paywallClose:
@@ -143,7 +187,8 @@ extension SuperwallManager: SuperwallDelegate {
                     }
                 }
 
-            case .transactionComplete:
+            case .transactionComplete(_, let product, _, let paywallInfo):
+                self.lastPaywallAttribution = Self.attribution(from: paywallInfo, productId: product.productIdentifier, didConvert: true)
                 // Call completion handler if set
                 self.onSubscriptionComplete?()
 
@@ -151,6 +196,20 @@ extension SuperwallManager: SuperwallDelegate {
                 break
             }
         }
+    }
+
+    private static func attribution(from paywallInfo: PaywallInfo, productId: String?, didConvert: Bool) -> PaywallAttribution {
+        PaywallAttribution(
+            paywallId: paywallInfo.identifier,
+            paywallName: paywallInfo.name,
+            placement: paywallInfo.presentedByPlacementWithName,
+            presentedBy: paywallInfo.presentedBy,
+            experimentId: paywallInfo.experiment?.id,
+            variantId: paywallInfo.experiment?.variant.id,
+            productId: productId,
+            didConvert: didConvert,
+            capturedAt: Date()
+        )
     }
 
     nonisolated public func handleLog(level: String, scope: String, message: String?, info: [String : Any]?, error: Error?) {
@@ -179,10 +238,33 @@ extension SuperwallManager: SuperwallDelegate {
 
     nonisolated public func willRedeemLink() {
         print("📦 SuperwallManager: willRedeemLink — Stripe return URL received, verifying...")
+        NotificationCenter.default.post(name: .superwallWillRedeemLink, object: nil)
     }
 
     nonisolated public func didRedeemLink(result: RedemptionResult) {
         print("📦 SuperwallManager: didRedeemLink — result: \(result)")
+
+        var info: [String: Any] = [:]
+        switch result {
+        case .success(let code, _):
+            info["status"] = "success"
+            info["code"] = code
+        case .error(let code, let error):
+            info["status"] = "error"
+            info["code"] = code
+            info["message"] = error.message
+        case .expiredCode(let code, _):
+            info["status"] = "expiredCode"
+            info["code"] = code
+        case .invalidCode(let code):
+            info["status"] = "invalidCode"
+            info["code"] = code
+        case .expiredSubscription(let code, _):
+            info["status"] = "expiredSubscription"
+            info["code"] = code
+        }
+
+        NotificationCenter.default.post(name: .superwallDidRedeemLink, object: nil, userInfo: info)
     }
 }
 
@@ -190,4 +272,14 @@ extension SuperwallManager: SuperwallDelegate {
 extension Notification.Name {
     public static let superwallPaywallDismissed = Notification.Name("superwallPaywallDismissed")
     public static let superwallSubscriptionStatusDidChange = Notification.Name("superwallSubscriptionStatusDidChange")
+
+    /// Fired when the Superwall SDK begins redeeming a web-checkout (Stripe) deep link.
+    /// Observe to show a "Redeeming…" progress state.
+    public static let superwallWillRedeemLink = Notification.Name("superwallWillRedeemLink")
+
+    /// Fired when the Superwall SDK finishes a redemption attempt. `userInfo` carries:
+    /// - `status`: one of `success` | `error` | `expiredCode` | `invalidCode` | `expiredSubscription`
+    /// - `code`: the redemption code
+    /// - `message`: present only for `error` status
+    public static let superwallDidRedeemLink = Notification.Name("superwallDidRedeemLink")
 }
