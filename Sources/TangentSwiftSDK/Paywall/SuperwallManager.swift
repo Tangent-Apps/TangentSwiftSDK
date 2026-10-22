@@ -143,9 +143,10 @@ extension SuperwallManager: SuperwallDelegate {
                     }
                 }
 
-            case .transactionComplete:
+            case .transactionComplete(let transaction, let product, let type, _):
                 // Call completion handler if set
                 self.onSubscriptionComplete?()
+                await AdjustManager.shared.trackPaywallPurchase(transaction: transaction, product: product, type: type)
 
             default:
                 break

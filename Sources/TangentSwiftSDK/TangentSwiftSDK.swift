@@ -13,6 +13,7 @@ public final class TangentSwiftSDK {
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
+        let adjustPurchaseTracking: AdjustPurchaseTracking?
         let superwallAPIKey: String?
         let firebaseConfigPath: String?
         let enableATT: Bool
@@ -22,6 +23,7 @@ public final class TangentSwiftSDK {
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
+            adjustPurchaseTracking: AdjustPurchaseTracking? = nil,
             superwallAPIKey: String? = nil,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
@@ -30,6 +32,7 @@ public final class TangentSwiftSDK {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
+            self.adjustPurchaseTracking = adjustPurchaseTracking
             self.superwallAPIKey = superwallAPIKey
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
@@ -109,11 +112,13 @@ public final class TangentSwiftSDK {
             MixpanelManager.shared.initialize(token: mixpanelToken)
         }
 
+        // Purchase tracking apps have no single purchase token, so only the app token is required.
         if let adjustToken = config.adjustAppToken,
-           let purchaseEventToken = config.adjustPurchaseEventToken {
+           config.adjustPurchaseEventToken != nil || config.adjustPurchaseTracking != nil {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
-                purchaseEventToken: purchaseEventToken,
+                purchaseEventToken: config.adjustPurchaseEventToken,
+                purchaseTracking: config.adjustPurchaseTracking,
                 didGetADID: { adid in
                     SuperwallManager.shared.registerAdjustADID(adid: adid)
                 }

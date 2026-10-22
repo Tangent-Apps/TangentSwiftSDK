@@ -1,5 +1,6 @@
 import Foundation
 @preconcurrency import AdjustSdk
+import SuperwallKit
 
 public final class AdjustManager: NSObject, ObservableObject {
     public static let shared = AdjustManager()
@@ -8,6 +9,8 @@ public final class AdjustManager: NSObject, ObservableObject {
     @Published public private(set) var adid: String?
 
     private var purchaseEventToken: String?
+    /// Set only when the app opts in to device-side purchase reporting.
+    private var purchaseReporter: AdjustPurchaseReporter?
     private var onADIDAvailable: ((String) -> Void)?
 
     private override init() {
@@ -19,7 +22,8 @@ public final class AdjustManager: NSObject, ObservableObject {
     public func initialize(
         appToken: String,
         environment: String = "production",
-        purchaseEventToken: String,
+        purchaseEventToken: String?,
+        purchaseTracking: AdjustPurchaseTracking? = nil,
         didGetADID: @escaping (String) -> Void
     ) {
         let cleanToken = appToken.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -37,6 +41,7 @@ public final class AdjustManager: NSObject, ObservableObject {
         config.delegate = self
         config.attConsentWaitingInterval = 120
         self.purchaseEventToken = purchaseEventToken
+        self.purchaseReporter = purchaseTracking.map(AdjustPurchaseReporter.init(tracking:))
         self.onADIDAvailable = didGetADID
 
         Adjust.initSdk(config)
@@ -79,6 +84,12 @@ public final class AdjustManager: NSObject, ObservableObject {
             Adjust.trackEvent(revenueEvent)
             print("💰 Adjust: Revenue tracked - \(amount) \(currency) for \(productId)")
         }
+    }
+
+    /// Reports a completed paywall purchase when purchase tracking is configured; no-op otherwise.
+    func trackPaywallPurchase(transaction: StoreTransaction?, product: StoreProduct, type: TransactionType) async {
+        guard isInitialized, let purchaseReporter else { return }
+        await purchaseReporter.report(transaction: transaction, product: product, type: type)
     }
 
     // MARK: - Generic Event Tracking
