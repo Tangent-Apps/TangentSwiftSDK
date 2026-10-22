@@ -10,30 +10,37 @@ public final class TangentSwiftSDK {
     
     // MARK: - Configuration
     public struct Configuration {
+        let superwallAPIKey: String?
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
         let adjustPurchaseTracking: AdjustPurchaseTracking?
-        let superwallAPIKey: String?
+        /// Seconds Adjust waits for the ATT answer before sending its first
+        /// session / minting the ADID. Default 2 so purchase attribution never
+        /// blocks on a post-paywall ATT prompt. Raise only if you show ATT
+        /// before the paywall AND need IDFA in the first session.
+        let adjustAttConsentWaitingInterval: UInt
         let firebaseConfigPath: String?
         let enableATT: Bool
         let attConfiguration: ATTConfiguration?
 
         public init(
+            superwallAPIKey: String? = nil,
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
             adjustPurchaseTracking: AdjustPurchaseTracking? = nil,
-            superwallAPIKey: String? = nil,
+            adjustAttConsentWaitingInterval: UInt = 2,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
             attConfiguration: ATTConfiguration? = nil
         ) {
+            self.superwallAPIKey = superwallAPIKey
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
             self.adjustPurchaseTracking = adjustPurchaseTracking
-            self.superwallAPIKey = superwallAPIKey
+            self.adjustAttConsentWaitingInterval = adjustAttConsentWaitingInterval
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
             self.attConfiguration = attConfiguration
@@ -119,6 +126,7 @@ public final class TangentSwiftSDK {
                 appToken: adjustToken,
                 purchaseEventToken: config.adjustPurchaseEventToken,
                 purchaseTracking: config.adjustPurchaseTracking,
+                attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
                 didGetADID: { adid in
                     SuperwallManager.shared.registerAdjustADID(adid: adid)
                 }
