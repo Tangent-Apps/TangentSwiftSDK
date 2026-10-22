@@ -42,7 +42,7 @@ final class AdjustPurchaseReporter {
             let price = NSDecimalNumber(decimal: skTransaction?.price ?? product.price).doubleValue
             let currency = currencyCode(of: skTransaction) ?? product.currencyCode ?? "USD"
             let country = await storefrontCountryCode(of: skTransaction)
-            let share = validated(tracking.takeHomeShare(country))
+            let share = tracking.share(for: country)
             let proceeds = (price * share * 100).rounded() / 100
             event.setRevenue(proceeds, currency: currency)
             summary = "price \(price) → proceeds \(proceeds) \(currency) (share \(share), \(country ?? "unknown storefront"))"
@@ -71,15 +71,6 @@ final class AdjustPurchaseReporter {
         case .nonRecurringProductPurchase:
             return tracking.oneTimePurchaseToken
         }
-    }
-
-    /// Falls back to the default when the provider returns something that can't be a share
-    /// (e.g. a typo like 85 or a negative number), so a bad remote value can't zero revenue.
-    private func validated(_ share: Double) -> Double {
-        guard share.isFinite, share > 0, share <= 1 else {
-            return AdjustPurchaseTracking.defaultTakeHomeShare
-        }
-        return share
     }
 
     private func currencyCode(of transaction: StoreKit.Transaction?) -> String? {
