@@ -14,7 +14,7 @@ public final class TangentSwiftSDK {
         let mixpanelToken: String?
         let adjustAppToken: String?
         let adjustPurchaseEventToken: String?
-        let adjustPurchaseTracking: AdjustPurchaseTracking?
+        let adjustPaywallTracking: AdjustPaywallTracking?
         /// Seconds Adjust waits for the ATT answer before sending its first
         /// session / minting the ADID. Default 2 so purchase attribution never
         /// blocks on a post-paywall ATT prompt. Raise only if you show ATT
@@ -29,7 +29,7 @@ public final class TangentSwiftSDK {
             mixpanelToken: String? = nil,
             adjustAppToken: String? = nil,
             adjustPurchaseEventToken: String? = nil,
-            adjustPurchaseTracking: AdjustPurchaseTracking? = nil,
+            adjustPaywallTracking: AdjustPaywallTracking? = nil,
             adjustAttConsentWaitingInterval: UInt = 2,
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
@@ -39,7 +39,7 @@ public final class TangentSwiftSDK {
             self.mixpanelToken = mixpanelToken
             self.adjustAppToken = adjustAppToken
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
-            self.adjustPurchaseTracking = adjustPurchaseTracking
+            self.adjustPaywallTracking = adjustPaywallTracking
             self.adjustAttConsentWaitingInterval = adjustAttConsentWaitingInterval
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
@@ -119,13 +119,13 @@ public final class TangentSwiftSDK {
             MixpanelManager.shared.initialize(token: mixpanelToken)
         }
 
-        // Purchase tracking apps have no single purchase token, so only the app token is required.
+        // Paywall tracking apps have no single purchase token, so only the app token is required.
         if let adjustToken = config.adjustAppToken,
-           config.adjustPurchaseEventToken != nil || config.adjustPurchaseTracking != nil {
+           config.adjustPurchaseEventToken != nil || config.adjustPaywallTracking != nil {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
                 purchaseEventToken: config.adjustPurchaseEventToken,
-                purchaseTracking: config.adjustPurchaseTracking,
+                paywallTracking: config.adjustPaywallTracking,
                 attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
                 didGetADID: { adid in
                     SuperwallManager.shared.registerAdjustADID(adid: adid)

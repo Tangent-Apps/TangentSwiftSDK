@@ -1,24 +1,27 @@
 import Foundation
 
-/// Opt-in configuration for reporting first purchases to Adjust from the device.
+/// Opt-in configuration for reporting the paywall funnel (paywall views and first purchases) to
+/// Adjust from the device, so the Adjust SDK can update the SKAdNetwork conversion value.
 ///
 /// Superwall's server integration should keep reporting renewals, trial conversions and refunds,
 /// but its trial-start / subscription-start / non-recurring tokens must be cleared in the Superwall
 /// dashboard when an app turns this on — otherwise every first purchase is counted twice.
-public struct AdjustPurchaseTracking {
+public struct AdjustPaywallTracking {
     /// The share of the customer price kept when no table lists the storefront, or a value can't be
     /// a share: Apple's 15% Small Business Program commission, no tax removed.
     public static let defaultTakeHomeShare = 0.85
 
-    let trialStartedToken: String?
-    let subscriptionStartedToken: String?
-    let oneTimePurchaseToken: String?
+    let paywallViewedToken: String
+    let trialStartedToken: String
+    let subscriptionStartedToken: String
+    let oneTimePurchaseToken: String
     private let takeHomeShares: [String: Double]
     private let takeHomeShare: ((_ storefrontCountryCode: String?) -> Double?)?
 
     /// Pass neither `takeHomeShares` nor `takeHomeShare` to use the SDK's built-in table.
     ///
     /// - Parameters:
+    ///   - paywallViewedToken: Adjust event for a Superwall paywall opening (sent without revenue).
     ///   - trialStartedToken: Adjust event for a free trial start (sent without revenue).
     ///   - subscriptionStartedToken: Adjust event for a paid subscription start.
     ///   - oneTimePurchaseToken: Adjust event for a consumable / non-consumable purchase.
@@ -27,12 +30,14 @@ public struct AdjustPurchaseTracking {
     ///   - takeHomeShare: Called at purchase time with the App Store country; return a share to use
     ///     it, or `nil` to fall back to the tables. Read remote values (e.g. Remote Config) here.
     public init(
-        trialStartedToken: String? = nil,
-        subscriptionStartedToken: String? = nil,
-        oneTimePurchaseToken: String? = nil,
+        paywallViewedToken: String,
+        trialStartedToken: String,
+        subscriptionStartedToken: String,
+        oneTimePurchaseToken: String,
         takeHomeShares: [String: Double] = [:],
         takeHomeShare: ((_ storefrontCountryCode: String?) -> Double?)? = nil
     ) {
+        self.paywallViewedToken = paywallViewedToken
         self.trialStartedToken = trialStartedToken
         self.subscriptionStartedToken = subscriptionStartedToken
         self.oneTimePurchaseToken = oneTimePurchaseToken

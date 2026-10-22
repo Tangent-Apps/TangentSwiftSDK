@@ -3,29 +3,41 @@ import StoreKit
 @preconcurrency import AdjustSdk
 import SuperwallKit
 
-/// Sends a Superwall paywall purchase to Adjust from the device, so the SDK can update the
+/// Sends Superwall paywall views and purchases to Adjust from the device, so the SDK can update the
 /// SKAdNetwork conversion value straight away (server events can't reach the device's SKAN value).
 ///
 /// Only first purchases are reported here; renewals, trial conversions and refunds stay with
 /// Superwall's server integration, which also sees the ones that happen while the app is closed.
-final class AdjustPurchaseReporter {
+/// Sandbox / TestFlight / Xcode builds only log what they would send.
+final class AdjustPaywallReporter {
     // MARK: - Properties
-    private let tracking: AdjustPurchaseTracking
+    private let tracking: AdjustPaywallTracking
 
     // MARK: - Initializer(s)
-    init(tracking: AdjustPurchaseTracking) {
+    init(tracking: AdjustPaywallTracking) {
         self.tracking = tracking
     }
 
     // MARK: - Reporting
-    func report(transaction: StoreTransaction?, product: StoreProduct, type: TransactionType) async {
+    func reportPaywallView() async {
+        let token = tracking.paywallViewedToken
+        guard let event = ADJEvent(eventToken: token) else {
+            print("❌ Adjust: Failed to create paywall view event with token: \(token)")
+            return
+        }
+        guard await isProduction(nil) else {
+            print("🧪 Adjust: Skipped non-production paywall view")
+            return
+        }
+        Adjust.trackEvent(event)
+        print("👀 Adjust: Sent paywall view")
+    }
+
+    func reportPurchase(transaction: StoreTransaction?, product: StoreProduct, type: TransactionType) async {
         let skTransaction = transaction?.sk2Transaction
         let productId = product.productIdentifier
 
-        guard let token = token(for: type), !token.isEmpty else {
-            print("⚠️ Adjust: No purchase token configured for \(type) — \(productId) not sent")
-            return
-        }
+        let token = token(for: type)
         guard let event = ADJEvent(eventToken: token) else {
             print("❌ Adjust: Failed to create purchase event with token: \(token)")
             return
@@ -50,7 +62,7 @@ final class AdjustPurchaseReporter {
 
         // Sandbox / TestFlight / Xcode purchases would pollute production revenue (Apple also
         // speeds sandbox renewals up), so they're only logged.
-        guard await isProductionPurchase(skTransaction) else {
+        guard await isProduction(skTransaction) else {
             print("🧪 Adjust: Skipped non-production \(type) \(productId) — would send \(summary)")
             return
         }
@@ -60,7 +72,7 @@ final class AdjustPurchaseReporter {
     }
 
     // MARK: - Helpers
-    private func token(for type: TransactionType) -> String? {
+    private func token(for type: TransactionType) -> String {
         switch type {
         case .freeTrialStart:
             return tracking.trialStartedToken
@@ -88,8 +100,9 @@ final class AdjustPurchaseReporter {
         return await Storefront.current?.countryCode
     }
 
-    /// Unknown environments count as non-production, so nothing doubtful reaches Adjust.
-    private func isProductionPurchase(_ transaction: StoreKit.Transaction?) async -> Bool {
+    /// The purchase's own environment, or the app install's when there is no transaction (paywall
+    /// views). Unknown environments count as non-production, so nothing doubtful reaches Adjust.
+    private func isProduction(_ transaction: StoreKit.Transaction?) async -> Bool {
         if let transaction {
             return transaction.environment == .production
         }

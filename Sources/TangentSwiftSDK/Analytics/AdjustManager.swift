@@ -9,8 +9,8 @@ public final class AdjustManager: NSObject, ObservableObject {
     @Published public private(set) var adid: String?
 
     private var purchaseEventToken: String?
-    /// Set only when the app opts in to device-side purchase reporting.
-    private var purchaseReporter: AdjustPurchaseReporter?
+    /// Set only when the app opts in to device-side paywall reporting.
+    private var paywallReporter: AdjustPaywallReporter?
     private var onADIDAvailable: ((String) -> Void)?
 
     private override init() {
@@ -23,7 +23,7 @@ public final class AdjustManager: NSObject, ObservableObject {
         appToken: String,
         environment: String = "production",
         purchaseEventToken: String?,
-        purchaseTracking: AdjustPurchaseTracking? = nil,
+        paywallTracking: AdjustPaywallTracking? = nil,
         // Seconds Adjust delays its FIRST session (and thus the ADID mint) while
         // waiting for the ATT answer. Low value = ADID resolves fast on cold
         // installs regardless of when ATT is shown; purchase attribution no
@@ -47,7 +47,7 @@ public final class AdjustManager: NSObject, ObservableObject {
         config.delegate = self
         config.attConsentWaitingInterval = attConsentWaitingInterval
         self.purchaseEventToken = purchaseEventToken
-        self.purchaseReporter = purchaseTracking.map(AdjustPurchaseReporter.init(tracking:))
+        self.paywallReporter = paywallTracking.map(AdjustPaywallReporter.init(tracking:))
         self.onADIDAvailable = didGetADID
 
         Adjust.initSdk(config)
@@ -92,10 +92,16 @@ public final class AdjustManager: NSObject, ObservableObject {
         }
     }
 
-    /// Reports a completed paywall purchase when purchase tracking is configured; no-op otherwise.
+    /// Reports a Superwall paywall opening when paywall tracking is configured; no-op otherwise.
+    func trackPaywallView() async {
+        guard isInitialized, let paywallReporter else { return }
+        await paywallReporter.reportPaywallView()
+    }
+
+    /// Reports a completed paywall purchase when paywall tracking is configured; no-op otherwise.
     func trackPaywallPurchase(transaction: StoreTransaction?, product: StoreProduct, type: TransactionType) async {
-        guard isInitialized, let purchaseReporter else { return }
-        await purchaseReporter.report(transaction: transaction, product: product, type: type)
+        guard isInitialized, let paywallReporter else { return }
+        await paywallReporter.reportPurchase(transaction: transaction, product: product, type: type)
     }
 
     // MARK: - Generic Event Tracking

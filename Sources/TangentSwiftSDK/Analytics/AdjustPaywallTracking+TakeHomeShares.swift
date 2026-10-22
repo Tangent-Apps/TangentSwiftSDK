@@ -1,6 +1,6 @@
 import Foundation
 
-extension AdjustPurchaseTracking {
+extension AdjustPaywallTracking {
     /// Proceeds ÷ price per App Store country (ISO 3166-1 alpha-3) for Tangent's developer account:
     /// the country's tax removed, then Apple's 15% Small Business Program commission. Countries not
     /// listed keep exactly ``defaultTakeHomeShare`` (0.85: no tax taken from the price).

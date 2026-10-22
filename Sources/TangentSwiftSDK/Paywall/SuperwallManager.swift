@@ -153,6 +153,7 @@ extension SuperwallManager: SuperwallDelegate {
             case .paywallOpen(let paywallInfo):
                 self.lastPaywallAttribution = Self.attribution(from: paywallInfo, productId: nil, didConvert: false)
                 TangentSwiftSDK.shared.analytics.track(event: .paywallViewed)
+                await AdjustManager.shared.trackPaywallView()
 
             case .paywallClose:
                 // Notify observers that paywall was dismissed
