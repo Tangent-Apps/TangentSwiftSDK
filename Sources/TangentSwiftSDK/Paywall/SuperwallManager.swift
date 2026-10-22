@@ -163,10 +163,9 @@ extension SuperwallManager: SuperwallDelegate {
 
                 // Show discount offer with smart logic after paywall is dismissed (if enabled)
                 if self.showDiscountPaywallOnDismiss {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        if !self.isSubscribed {
-                            self.showDiscountPayWall()
-                        }
+                    try? await Task.sleep(for: .seconds(2))
+                    if !self.isSubscribed {
+                        self.showDiscountPayWall()
                     }
                 }
 
