@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adjust/adjust_signature_sdk.git",
       "state" : {
-        "revision" : "8af71c556087b2f6cc35b70f0076b944b1b38e44",
-        "version" : "3.67.0"
+        "revision" : "e3d405e813d35d50bb2be35d59b8659527fe37dc",
+        "version" : "5.0.0"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/adjust/ios_sdk",
       "state" : {
-        "revision" : "0a8cccacfb354c36f8f7fbc57331e7d3a52ed9e5",
-        "version" : "5.6.2"
+        "revision" : "06aaed8bbee099d545c74bf3101b6bcffb9d2791",
+        "version" : "5.8.0"
       }
     },
     {
@@ -55,12 +55,12 @@
       }
     },
     {
-      "identity" : "superscript-ios",
+      "identity" : "superscript-ios-next",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/superwall/Superscript-iOS",
+      "location" : "https://github.com/superwall/superscript-ios-next",
       "state" : {
-        "revision" : "711866edcb62dbd237c24ed3e5fa39fad0db639f",
-        "version" : "1.0.13"
+        "revision" : "c3d1ee8d23ae6bf27e2d261c41a61001281166ec",
+        "version" : "1.0.15"
       }
     },
     {
@@ -68,8 +68,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/superwall/Superwall-iOS",
       "state" : {
-        "revision" : "4850e1ade9f4e06d4ed796a3a89077de7c70fbf4",
-        "version" : "4.15.1"
+        "revision" : "abaab5397f9684b3ffe9232265036d40923dcdc3",
+        "version" : "4.17.0"
       }
     }
   ],

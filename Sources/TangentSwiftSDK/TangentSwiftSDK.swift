@@ -8,6 +8,17 @@ public final class TangentSwiftSDK {
     // MARK: - Singleton
     public static let shared = TangentSwiftSDK()
     
+    /// Which Adjust environment the SDK reports into.
+    ///
+    /// `.sandbox` is what makes a device show up in Adjust's Testing Console, so it is
+    /// the only way to watch events land in the dashboard while developing. Sandbox
+    /// traffic is kept out of production reporting and is **not** forwarded to
+    /// partners — so it proves the app → Adjust hop, never the Adjust → Meta one.
+    public enum AdjustEnvironment: String {
+        case production
+        case sandbox
+    }
+
     // MARK: - Configuration
     public struct Configuration {
         let superwallAPIKey: String?
@@ -20,9 +31,21 @@ public final class TangentSwiftSDK {
         /// blocks on a post-paywall ATT prompt. Raise only if you show ATT
         /// before the paywall AND need IDFA in the first session.
         let adjustAttConsentWaitingInterval: UInt
+        /// Defaults to `.production`, so apps that don't set it are unaffected.
+        let adjustEnvironment: AdjustEnvironment
+        /// Analytics event name → Adjust event token, e.g. `["trial_started": "abc123"]`.
+        /// Adjust only accepts events it has a token for, so `analytics.trackCustomEvent`
+        /// forwards a name to Adjust only if it appears here. Empty = Mixpanel only.
+        let adjustEventTokens: [String: String]
         let firebaseConfigPath: String?
         let enableATT: Bool
         let attConfiguration: ATTConfiguration?
+        /// Whether the SDK identifies Superwall with the IDFV at init. Defaults to
+        /// `true`, so apps that don't set it are unaffected. Set `false` in any app
+        /// that calls `superwall.identify(userId:)` itself — see
+        /// ``SuperwallManager/initialize(apiKey:identifyWithVendorId:)`` for what the
+        /// double identify costs.
+        let superwallIdentifiesWithVendorId: Bool
 
         public init(
             superwallAPIKey: String? = nil,
@@ -31,9 +54,12 @@ public final class TangentSwiftSDK {
             adjustPurchaseEventToken: String? = nil,
             adjustPaywallTracking: AdjustPaywallTracking? = nil,
             adjustAttConsentWaitingInterval: UInt = 2,
+            adjustEnvironment: AdjustEnvironment = .production,
+            adjustEventTokens: [String: String] = [:],
             firebaseConfigPath: String? = nil,
             enableATT: Bool = false,
-            attConfiguration: ATTConfiguration? = nil
+            attConfiguration: ATTConfiguration? = nil,
+            superwallIdentifiesWithVendorId: Bool = true
         ) {
             self.superwallAPIKey = superwallAPIKey
             self.mixpanelToken = mixpanelToken
@@ -41,9 +67,12 @@ public final class TangentSwiftSDK {
             self.adjustPurchaseEventToken = adjustPurchaseEventToken
             self.adjustPaywallTracking = adjustPaywallTracking
             self.adjustAttConsentWaitingInterval = adjustAttConsentWaitingInterval
+            self.adjustEnvironment = adjustEnvironment
+            self.adjustEventTokens = adjustEventTokens
             self.firebaseConfigPath = firebaseConfigPath
             self.enableATT = enableATT
             self.attConfiguration = attConfiguration
+            self.superwallIdentifiesWithVendorId = superwallIdentifiesWithVendorId
         }
     }
     
@@ -111,7 +140,10 @@ public final class TangentSwiftSDK {
         guard let config = configuration else { return }
         // Initialize Paywall
         if let superwallKey = config.superwallAPIKey {
-            SuperwallManager.shared.initialize(apiKey: superwallKey)
+            SuperwallManager.shared.initialize(
+                apiKey: superwallKey,
+                identifyWithVendorId: config.superwallIdentifiesWithVendorId
+            )
         }
 
         // Initialize Analytics
@@ -124,8 +156,10 @@ public final class TangentSwiftSDK {
            config.adjustPurchaseEventToken != nil || config.adjustPaywallTracking != nil {
             AdjustManager.shared.initialize(
                 appToken: adjustToken,
+                environment: config.adjustEnvironment.rawValue,
                 purchaseEventToken: config.adjustPurchaseEventToken,
                 paywallTracking: config.adjustPaywallTracking,
+                eventTokens: config.adjustEventTokens,
                 attConsentWaitingInterval: config.adjustAttConsentWaitingInterval,
                 didGetADID: { adid in
                     SuperwallManager.shared.registerAdjustADID(adid: adid)
